@@ -1,0 +1,8 @@
+*.pem
+*.key
+id_rsa
+.env
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+*credentials*
