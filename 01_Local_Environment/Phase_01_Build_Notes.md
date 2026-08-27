@@ -34,9 +34,9 @@ Note: Start downloading all three ISOs prior to disabling the adapter.
 1. Add DVD Drive and Mount ISO to the VM
 
 Debian and Rocky VMs/Nodes
-Add-VMDvdDrive -VMName "Infra_Node" -Path "C:\ISOs\[ISO filename]" -Passthru | ForEach-Object { Set-VMFirmware -VMName $_.VMName -SecureBootTemplate "MicrosoftUEFICertificateAuthority" -FirstBootDevice $_ }
+- Add-VMDvdDrive -VMName "Infra_Node" -Path "C:\ISOs\[ISO filename]" -Passthru | ForEach-Object { Set-VMFirmware -VMName $_.VMName -SecureBootTemplate "MicrosoftUEFICertificateAuthority" -FirstBootDevice $_ }
 
 Windows Server VM/Node
-Add-VMDvdDrive -VMName "Windows_Node" -Path "C:\ISOs\[ISO filename]" -Passthru | ForEach-Object { Set-VMFirmware -VMName $_.VMName -SecureBootTemplate "MicrosoftWindows" -FirstBootDevice $_ }
+- Add-VMDvdDrive -VMName "Windows_Node" -Path "C:\ISOs\[ISO filename]" -Passthru | ForEach-Object { Set-VMFirmware -VMName $_.VMName -SecureBootTemplate "MicrosoftWindows" -FirstBootDevice $_ }
 
 2. Start the VM via CLI: Start-VM -Name $vmName
