@@ -22,6 +22,8 @@ New-VM -Name $vmName `
        -SwitchName "Lab_Internal" `
        -Generation 2
 
+*** IMPORTANT: Windows Server requires a Generation 1 to bootstrap the image. Generation 2 can be used for the Debian/Linux VMs. If you create the Windows VM as Generation 2, you'll have to recreate it. ***
+
 # 3. Add the second network interface for the Hyper-V Default Switch
 Add-VMNetworkAdapter -VMName $vmName -SwitchName "Default Switch"
 
@@ -40,3 +42,46 @@ Windows Server VM/Node
 - Add-VMDvdDrive -VMName "Windows_Node" -Path "C:\ISOs\[ISO filename]" -Passthru | ForEach-Object { Set-VMFirmware -VMName $_.VMName -SecureBootTemplate "MicrosoftWindows" -FirstBootDevice $_ }
 
 2. Start the VM via CLI: Start-VM -Name $vmName
+
+*** Infra_Node Preparation for DHCP/DNS (Task 1.3) ***
+
+Discovered Debian Dependencies:
+1. sudo isn't installed
+2. sources.list isn't populate with URLs needed to download packages
+3. username isn't in /etc/sudoers
+
+STEPS:
+1. Elevate to root: (su -)
+2. Populate /etc/apt/sources.list with the following URLs:
+   deb http://deb.debian.org/debian trixie bookworm
+   deb http://security.debian.org/debian-security trixie-security main
+   deb http://deb.debian.org/debian trixie-updates main
+3. Add username to /etc/sudoers file
+4. Run 'apt install sudo'
+5. Exit root (Ctrl + C) 
+6. Run 'sudo apt update'
+
+*** Note: You won't be able to download any packages needed (e.g. dmasq) without performing these preliminary steps ***
+
+# 1. Bind static IP address to eth1
+
+1. ip -br link
+   a. Interface attached to the Hyper-V Default Switch should already have a 172.x.x.x address. The second interface attached to the 'Lab_Internal' switch shouldn't have an IP assigned
+2. Navigate to /etc/systemd/network/
+3. Create '10-internal.network': touch 10-internal.network
+4. [Match]
+   Name=[interface attached to Lab_Internal] (e.g. eth0)
+
+   [Network]
+   Address=10.10.30.1/24
+   DHCP=no
+5. sudo systemctl enable --now systemd-networkd
+6. sudo systemctl restart systemd-networkd
+7. ip -4 addr show eth0 (should now see eth0 with IP address 10.10.10.1)
+
+# 1. Build dnsmasq from source
+1. cd /usr/local/src
+2. sudo wget https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
+3. sudo tar xzf dnsmasq-2.91.tar.gz
+4. cd dnsmasq-2.91
+
