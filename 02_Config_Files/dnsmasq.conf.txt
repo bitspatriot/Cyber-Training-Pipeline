@@ -1,0 +1,28 @@
+# --- Interface binding ---
+interface=eth1
+bind-interfaces
+listen-address=10.10.0.1
+# never touch the external/other interfaces
+except-interface=lo
+
+# --- DNS ---
+# act as the resolver for the internal net
+domain-needed
+bogus-priv
+no-resolv
+server=1.1.1.1        # upstream forwarders for anything non-local
+server=9.9.9.9
+domain=squadron.internal
+local=/squadron.internal/  # local domain, answered authoritatively
+domain=internal.lan
+expand-hosts
+
+# --- DHCP ---
+dhcp-range=10.10.0.100,10.10.0.200,255.255.255.0,12h
+dhcp-option=option:router,10.10.0.1       # gateway = this node
+dhcp-option=option:dns-server,10.10.0.1   # clients use us for DNS
+dhcp-authoritative
+
+# --- logging (useful while validating) ---
+log-queries
+log-dhcp
