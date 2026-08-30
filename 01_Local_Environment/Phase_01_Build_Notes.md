@@ -97,5 +97,31 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    - Only Data_Node and Windows_Node should touch this network
 2. Default Switch Interface = eth1 (MAC: 0C-74-02)
 
-# 9. 
+# 9. Enable IP Forwarding on the Data_Node and Windows_Node
+1. ip -br addr
+2. ip route show default (eth1 should be your WAN uplink)
+3. Enable IP Forwarding:
+   - Immediate: sudo sysctl -w net.ipv4.ip_forward=1
+   - Persistent: echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-ipforward.conf
+   - sudo sysctl --system
+4. Confirm IP Forwarding id Enabled: sysctl net.ipv4.ip_forward (should read = 1)
+
+# 10. Setup NAT + nftables Forwarding Rules on Infra_Node
+1. Infra_Node uses nftables. Create following rules on the Infra_Node with the below nftables commands:
+2. NAT table + masquerade lab traffic out the uplink
+   - sudo nft add table ip nat
+   - sudo nft add chain ip nat postrouting '{ type nat hook postrouting priority 100 ; }'
+   - sudo nft add rule ip nat postrouting ip saddr 10.10.30.0/24 oif "eth1" masquerade
+3. Filter table + forwarding bi-directional
+   - sudo nft add table ip filter
+   - sudo nft add chain ip filter forward '{ type filter hook forward priority 0 ; }'
+   - sudo nft add rule ip filter forward iif "eth0" oif "eth1" accept
+   - sudo nft add rule ip filter forward iif "eth1" oif "eth0" ct state related,established accept
+4. Verify the rulesdet landed: sudo nft list ruleset
+   - You should see the masquerade rule under postrouting and the two forward rules.
+5. Test that you can ping 8.8.8.8 and google.com from both the Data_Node and Windows_Node BEFORE making the rules persistent.
+6. If you can now route throgh the Infra_Node out to the internet, make the nft ruleset persistent:
+   1. sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+   2. sudo systemctl enable --now nftables
+
 
