@@ -124,4 +124,5 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    1. sudo sh -c 'nft list ruleset > /etc/nftables.conf'
    2. sudo systemctl enable --now nftables
 
+*** PAUSE: CREATE NEW CHECKPOINTS IN HYPER-V FOR ALL VMS ***
 
