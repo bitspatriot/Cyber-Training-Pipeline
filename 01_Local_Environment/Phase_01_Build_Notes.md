@@ -63,7 +63,7 @@ STEPS:
 
 *** Note: You won't be able to download any packages needed (e.g. dmasq) without performing these preliminary steps ***
 
-# 1. Bind static IP address to eth1
+# 6.Bind static IP address to eth1
 
 1. ip -br link
    a. Interface attached to the Hyper-V Default Switch should already have a 172.x.x.x address. The second interface attached to the 'Lab_Internal' switch shouldn't have an IP assigned
@@ -79,9 +79,74 @@ STEPS:
 6. sudo systemctl restart systemd-networkd
 7. ip -4 addr show eth0 (should now see eth0 with IP address 10.10.10.1)
 
-# 1. Build dnsmasq from source
+# 7. Build dnsmasq from source
 1. cd /usr/local/src
 2. sudo wget https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
 3. sudo tar xzf dnsmasq-2.91.tar.gz
 4. cd dnsmasq-2.91
+5. Create and configure the /etc/dnsmasq.conf and /etc/systemd/system/dnsmasq.service daemon:
+
+*** dnsmasq.conf ***
+
+# --- Interface binding ---
+interface=eth1
+bind-interfaces
+listen-address=10.10.0.1
+# never touch the external/other interfaces
+except-interface=lo
+
+# --- DNS ---
+# act as the resolver for the internal net
+domain-needed
+bogus-priv
+no-resolv
+server=1.1.1.1        # upstream forwarders for anything non-local
+server=9.9.9.9
+domain=squadron.internal
+local=/squadron.internal/  # local domain, answered authoritatively
+domain=internal.lan
+expand-hosts
+
+# --- DHCP ---
+dhcp-range=10.10.0.100,10.10.0.200,255.255.255.0,12h
+dhcp-option=option:router,10.10.0.1       # gateway = this node
+dhcp-option=option:dns-server,10.10.0.1   # clients use us for DNS
+dhcp-authoritative
+
+# --- logging (useful while validating) ---
+log-queries
+log-dhcp
+
+*** END - ALWAYS test you dnsmasq.conf file for syntax error with 'sudo /usr/local/sbin/dnsmasq --test' command ***
+
+*** dnsmasq.service ***
+
+[Unit]
+Description=dnsmasq (compiled from source)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/usr/local/sbin/dnsmasq --test
+ExecStart=/usr/local/sbin/dnsmasq -k --conf-file=/etc/dnsmasq.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+*** END ***
+
+*** START THE DNSMASQ DAEMON: Windows_Node and Data_Node should be issued a leased IP from dnsmasq and the proper squadron.local domain with an authoritative DNS of you configured server IP (e.g. 10.10.30.1 /domain: squadron.internal) ***
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now dnsmasq
+sudo systemctl status dnsmasq
+
+INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as seperate configuration files to the repo:
+1. Lab_Internal Interface = eth0 (MAC: 0C-74-01) / 10.10.30.1 Network
+   - Only Data_Node and Windows_Node should touch this network
+2. Default Switch Interface = eth1 (MAC: 0C-74-02)
+
+# 9. 
 
