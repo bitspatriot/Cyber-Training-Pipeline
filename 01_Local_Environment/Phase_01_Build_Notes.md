@@ -84,58 +84,7 @@ STEPS:
 2. sudo wget https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
 3. sudo tar xzf dnsmasq-2.91.tar.gz
 4. cd dnsmasq-2.91
-5. Create and configure the /etc/dnsmasq.conf and /etc/systemd/system/dnsmasq.service daemon:
-
-*** dnsmasq.conf ***
-
-# --- Interface binding ---
-interface=eth1
-bind-interfaces
-listen-address=10.10.0.1
-# never touch the external/other interfaces
-except-interface=lo
-
-# --- DNS ---
-# act as the resolver for the internal net
-domain-needed
-bogus-priv
-no-resolv
-server=1.1.1.1        # upstream forwarders for anything non-local
-server=9.9.9.9
-domain=squadron.internal
-local=/squadron.internal/  # local domain, answered authoritatively
-domain=internal.lan
-expand-hosts
-
-# --- DHCP ---
-dhcp-range=10.10.0.100,10.10.0.200,255.255.255.0,12h
-dhcp-option=option:router,10.10.0.1       # gateway = this node
-dhcp-option=option:dns-server,10.10.0.1   # clients use us for DNS
-dhcp-authoritative
-
-# --- logging (useful while validating) ---
-log-queries
-log-dhcp
-
-*** END - ALWAYS test you dnsmasq.conf file for syntax error with 'sudo /usr/local/sbin/dnsmasq --test' command ***
-
-*** dnsmasq.service ***
-
-[Unit]
-Description=dnsmasq (compiled from source)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-ExecStartPre=/usr/local/sbin/dnsmasq --test
-ExecStart=/usr/local/sbin/dnsmasq -k --conf-file=/etc/dnsmasq.conf
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-
-*** END ***
+5. Create and configure the /etc/dnsmasq.conf and /etc/systemd/system/dnsmasq.service daemon: (config files are located in 02_Config_Files)
 
 *** START THE DNSMASQ DAEMON: Windows_Node and Data_Node should be issued a leased IP from dnsmasq and the proper squadron.local domain with an authoritative DNS of you configured server IP (e.g. 10.10.30.1 /domain: squadron.internal) ***
 
