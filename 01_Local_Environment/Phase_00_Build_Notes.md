@@ -22,8 +22,8 @@
     3. Start-Service ssh-agent
     4. Switch back to Command Prompt without elevated permissions
     5. ssh-add c:\Users\[user account]\.ssh\id_ed25519
-    6. From VS Code Terminal or Command Prompt: git config --global core.sshCommand "C:\Windows\System32\OpenSSH\ssh.exe"
-    7. From VS Code Terminal or Command Prompt: git config --global gpg.ssh.program "C:\Windows\System32\OpenSSH\ssh.exe"
+    6. From VS Code Terminal or Command Prompt: git config --global core.sshCommand ssh
+    7. From VS Code Terminal or Command Prompt: git config --global gpg.ssh.program ssh
     8. From VS Code Terminal or Command Prompt: cat C:\Users\bitsp\.ssh\id_ed25519.pub | clip
     9. Login into GitHub and add the clipped public key to the Settings > 'SSH and GPG Keys'
 
