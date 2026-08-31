@@ -1,4 +1,4 @@
-*** Install Hyper-V via CLI ***
+# *** Task 1.1: Install Hyper-V via CLI ***
 
 1. Launch an elevated command prompt
 2. Command: dism.exe /Online /Enable-Feature /FeatureName:Microsoft-Hyper-V /All
@@ -6,15 +6,15 @@
 4. List Existing Network Adapters: Get-NetAdapter | ft Name, Status
 5. Create new Internal Switch: New-VMSwitch -name "Lab_Internal" -SwitchType Internal
 
-*** Create three VMs via CLI (Powershell) ***
+# *** Task 1.2: Create three VMs via CLI (Powershell) ***
 
-* 1. Define VM configuration parameters *
+1. Define VM configuration parameters *
 $vmName = "MyHeadlessVM"
 $memoryAmount = 4GB
 $diskSize = 60GB
 $path = "C:\Hyper-V\Virtual Machines"
 
-* 2. Create the VM attached initially to the custom internal switch *
+2. Create the VM attached initially to the custom internal switch *
 New-VM -Name $vmName `
        -MemoryStartupBytes $memoryAmount `
        -NewVHDPath "$path\$vmName\$vmName.vhdx" `
@@ -24,13 +24,13 @@ New-VM -Name $vmName `
 
 *** IMPORTANT: Windows Server requires a Generation 1 to bootstrap the image. Generation 2 can be used for the Debian/Linux VMs. If you create the Windows VM as Generation 2, you'll have to recreate it. ***
 
-# 3. Add the second network interface for the Hyper-V Default Switch
+*** Add the second network interface for the Hyper-V Default Switch ***
 Add-VMNetworkAdapter -VMName $vmName -SwitchName "Default Switch"
 
-# 4. Optional: Enable Automatic Checkpoints / Set CPU cores
+*** Optional: Enable Automatic Checkpoints / Set CPU cores ***
 Set-VMProcessor -VMName $vmName -Count 2
 
-# 5. Start the VM headless (in the background, without launching Hyper-V Manager GUI)
+*** Start the VM headless (in the background, without launching Hyper-V Manager GUI) ***
 Note: Start downloading all three ISOs prior to disabling the adapter.
 
 1. Add DVD Drive and Mount ISO to the VM
@@ -43,7 +43,7 @@ Windows Server VM/Node
 
 2. Start the VM via CLI: Start-VM -Name $vmName
 
-*** Infra_Node Preparation for DHCP/DNS (Task 1.3) ***
+# *** Task 1.3: Infra_Node Preparation for DHCP/DNS (Task 1.3) ***
 
 Discovered Debian Dependencies:
 1. sudo isn't installed
@@ -63,7 +63,7 @@ STEPS:
 
 *** Note: You won't be able to download any packages needed (e.g. dmasq) without performing these preliminary steps ***
 
-# 6.Bind static IP address to eth1
+*** Bind static IP address to eth1 ***
 
 1. ip -br link
    a. Interface attached to the Hyper-V Default Switch should already have a 172.x.x.x address. The second interface attached to the 'Lab_Internal' switch shouldn't have an IP assigned
@@ -79,7 +79,7 @@ STEPS:
 6. sudo systemctl restart systemd-networkd
 7. ip -4 addr show eth0 (should now see eth0 with IP address 10.10.10.1)
 
-# 7. Build dnsmasq from source
+*** Build dnsmasq from source ***
 1. cd /usr/local/src
 2. sudo wget https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
 3. sudo tar xzf dnsmasq-2.91.tar.gz
@@ -97,7 +97,7 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    - Only Data_Node and Windows_Node should touch this network
 2. Default Switch Interface = eth1 (MAC: 0C-74-02)
 
-# 9. Enable IP Forwarding on the Data_Node and Windows_Node
+# *** Enable IP Forwarding on the Data_Node and Windows_Node ***
 1. ip -br addr
 2. ip route show default (eth1 should be your WAN uplink)
 3. Enable IP Forwarding:
@@ -106,7 +106,7 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    - sudo sysctl --system
 4. Confirm IP Forwarding id Enabled: sysctl net.ipv4.ip_forward (should read = 1)
 
-# 10. Setup NAT + nftables Forwarding Rules on Infra_Node
+*** Setup NAT + nftables Forwarding Rules on Infra_Node ***
 1. Infra_Node uses nftables. Create following rules on the Infra_Node with the below nftables commands:
 2. NAT table + masquerade lab traffic out the uplink
    - sudo nft add table ip nat
@@ -126,16 +126,16 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
 
 *** PAUSE: CREATE NEW CHECKPOINTS IN HYPER-V FOR ALL VMS ***
 
-*** Boot and SSH Hardening ***
+# *** Task 1.4: Boot and SSH Hardening ***
 
-# 1. Generate SSH key pair on Infra_Node and distribute to Data_Node
+*** Generate SSH key pair on Infra_Node and distribute to Data_Node ***
 1. On Infra Node: ssh-keygen -t ed25519 -C "infra-node -> data-node" -f ~/.ssh/id_ed25519
 2. ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<data_node_ip>
 3. SSH to Data_Node to test: ssh -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116 / Substitue your hostname and IP
 4. Sanity Check (force no Password Authentication): ssh -o PasswordAuthentication=no -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116
 5. If ssh access worked without password authentication, proceed to disable password authentication (CREATE CHECKPOINT ON DATA_NODE FIRST AS BACKUP PLAN!)
 
-# 2. Disable password authentication on Data_Node
+*** Disable password authentication on Data_Node ***
 1. SSH to Data_Node
 2. sudo nano /etc/ssh/sshd_config.d/10-hardening.conf (add following drop-in rules)
 PasswordAuthentication no
@@ -147,14 +147,14 @@ PubkeyAuthentication yes
 5. Test that ssh key authentication still works (Step 3 in 'Generate SSH key pair' steps above)
 6. Test that the door is closed: ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no <user>@data-node.squadron.internal (should receive permission denied message)
 
-*** Authoritative Time ***
+# *** Task 1.5: Authoritative Time ***
 
 1. Install chrony: sudo apt install chrony
 2. Configure /etc/chrony/chrony.conf
 Add the following lines below "Use Debian vendor zone":
-- # --- Serve time to the internal network ---
+- *** Serve time to the internal network ***
 allow 10.10.30.0/24
-- # --- Serve even if upstream is briefly unreachable ---
+- *** Serve even if upstream is briefly unreachable ***
 local stratum 10
 3. sudo systemctl restart chrony
 4. sudo systemctl enable chrony
@@ -179,7 +179,7 @@ local stratum 10
     - chronyc sources -v
     - chronyc tracking
 
-*** Storage and Persistence ***
+# *** Task 1.6: Storage and Persistence ***
 
 1. Open PowerShell (create 4GB dynamic VHDX): New-VHD -Path "C:\<Hyper-V path>\Data_Node\ops_disk.vhdx" -SizeBytes 4GB -Dynamic
 2. Attach to the Data_Node's SCSI controller: Add-VMHardDiskDrive -VMName "Data_Node" -Path "C:\Program Files\Hyper-V\Virtual Machines\Data_Node\ops_disk.vhdx"
