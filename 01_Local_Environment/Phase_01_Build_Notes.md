@@ -209,3 +209,32 @@ local stratum 10
 - lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sdb
 - findmnt --verify
 - df -h /mnt/ops_data /mnt/log_data
+
+# Task 1.7: Indentity and Special Permissions
+
+*** Create the group ***
+1. On Data_Node: sudo groupadd cyber_team
+
+*** Create two users and add them to group ***
+1. sudo useradd -m -G cyber_team alpha
+2. sudo useradd -m -G cyber_team bravo
+3. sudo passwd alpha
+4. sudo passwd bravo
+5. Confirm group memership: groups alpha / groups bravo / id alpha
+
+*** Create new shared directory and assign it to group ***
+1. sudo mkdir -p /mnt/ops_data/shared
+2. sudo chgrp cyber_team /mnt/ops_data/shared
+
+*** Apply the permissions and sticky bit + group write + SGID (new files inherit the group) ***
+1. sudo chmod 2770 /mnt/ops_data/shared (SGID enabled with "2". Without SGID, when alpha creates a file it'd be group 'alpha' and bravo won't have access.)
+2. Adding sticky bith with +1 to SGID (2): sudo chmod 3770 /mnt/ops_data/shared
+3. Verify that that permissions applied correctly: ls -ld /mnt/ops_data/shared
+   - Should see: drwxrws--T
+  
+# Task 1.8: Systemd Daemon & Windows Task Scheduler
+
+*** Build Data_Node metics daemon ***
+1. sudo nano /usr/local/bin/metrics-logger.sh
+2. Created bash script dropped it into new repository folder "03_Scripts"
+3. Make script executable: sudo chmod +x /usr/local/bin/metrics-logger.sh
