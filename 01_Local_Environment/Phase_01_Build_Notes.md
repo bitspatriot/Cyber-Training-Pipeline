@@ -1,4 +1,4 @@
-# *** Task 1.1: Install Hyper-V via CLI ***
+# Task 1.1: Install Hyper-V via CLI
 
 1. Launch an elevated command prompt
 2. Command: dism.exe /Online /Enable-Feature /FeatureName:Microsoft-Hyper-V /All
@@ -6,7 +6,7 @@
 4. List Existing Network Adapters: Get-NetAdapter | ft Name, Status
 5. Create new Internal Switch: New-VMSwitch -name "Lab_Internal" -SwitchType Internal
 
-# *** Task 1.2: Create three VMs via CLI (Powershell) ***
+# Task 1.2: Create three VMs via CLI (Powershell)
 
 1. Define VM configuration parameters *
 $vmName = "MyHeadlessVM"
@@ -43,7 +43,7 @@ Windows Server VM/Node
 
 2. Start the VM via CLI: Start-VM -Name $vmName
 
-# *** Task 1.3: Infra_Node Preparation for DHCP/DNS (Task 1.3) ***
+# Task 1.3: Infra_Node Preparation for DHCP/DNS (Task 1.3)
 
 Discovered Debian Dependencies:
 1. sudo isn't installed
@@ -97,7 +97,7 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    - Only Data_Node and Windows_Node should touch this network
 2. Default Switch Interface = eth1 (MAC: 0C-74-02)
 
-# *** Enable IP Forwarding on the Data_Node and Windows_Node ***
+*** Enable IP Forwarding on the Data_Node and Windows_Node ***
 1. ip -br addr
 2. ip route show default (eth1 should be your WAN uplink)
 3. Enable IP Forwarding:
@@ -126,7 +126,7 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
 
 *** PAUSE: CREATE NEW CHECKPOINTS IN HYPER-V FOR ALL VMS ***
 
-# *** Task 1.4: Boot and SSH Hardening ***
+# Task 1.4: Boot and SSH Hardening
 
 *** Generate SSH key pair on Infra_Node and distribute to Data_Node ***
 1. On Infra Node: ssh-keygen -t ed25519 -C "infra-node -> data-node" -f ~/.ssh/id_ed25519
@@ -147,7 +147,7 @@ PubkeyAuthentication yes
 5. Test that ssh key authentication still works (Step 3 in 'Generate SSH key pair' steps above)
 6. Test that the door is closed: ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no <user>@data-node.squadron.internal (should receive permission denied message)
 
-# *** Task 1.5: Authoritative Time ***
+# Task 1.5: Authoritative Time
 
 1. Install chrony: sudo apt install chrony
 2. Configure /etc/chrony/chrony.conf
@@ -179,7 +179,7 @@ local stratum 10
     - chronyc sources -v
     - chronyc tracking
 
-# *** Task 1.6: Storage and Persistence ***
+# Task 1.6: Storage and Persistence
 
 1. Open PowerShell (create 4GB dynamic VHDX): New-VHD -Path "C:\<Hyper-V path>\Data_Node\ops_disk.vhdx" -SizeBytes 4GB -Dynamic
 2. Attach to the Data_Node's SCSI controller: Add-VMHardDiskDrive -VMName "Data_Node" -Path "C:\Program Files\Hyper-V\Virtual Machines\Data_Node\ops_disk.vhdx"
