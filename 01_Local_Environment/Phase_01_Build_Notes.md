@@ -126,3 +126,55 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
 
 *** PAUSE: CREATE NEW CHECKPOINTS IN HYPER-V FOR ALL VMS ***
 
+*** Boot and SSH Hardening ***
+
+# 1. Generate SSH key pair on Infra_Node and distribute to Data_Node
+1. On Infra Node: ssh-keygen -t ed25519 -C "infra-node -> data-node" -f ~/.ssh/id_ed25519
+2. ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<data_node_ip>
+3. SSH to Data_Node to test: ssh -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116 / Substitue your hostname and IP
+4. Sanity Check (force no Password Authentication): ssh -o PasswordAuthentication=no -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116
+5. If ssh access worked without password authentication, proceed to disable password authentication (CREATE CHECKPOINT ON DATA_NODE FIRST AS BACKUP PLAN!)
+
+# 2. Disable password authentication on Data_Node
+1. SSH to Data_Node
+2. sudo nano /etc/ssh/sshd_config.d/10-hardening.conf (add following drop-in rules)
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+3. Test the configuration syntax: sudo sshd -t
+4. Reload sshd: sudo systemctl reload sshd
+5. Test that ssh key authentication still works (Step 3 in 'Generate SSH key pair' steps above)
+6. Test that the door is closed: ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no <user>@data-node.squadron.internal (should receive permission denied message)
+
+*** Authoritative Time ***
+
+1. Install chrony: sudo apt install chrony
+2. Configure /etc/chrony/chrony.conf
+Add the following lines below "Use Debian vendor zone":
+- # --- Serve time to the internal network ---
+allow 10.10.30.0/24
+- # --- Serve even if upstream is briefly unreachable ---
+local stratum 10
+3. sudo systemctl restart chrony
+4. sudo systemctl enable chrony
+5. chronyc sources -v
+6. chronyc tracking
+7. Advertise the time server via DHCP:
+   - Add 'dhcp-option=option:ntp-server,10.10.30.1' to /etc/dnsmasq.conf
+8. Test and reload dnsmasq: 
+   - sudo /usr/local/sbin/dnsmasq --test
+   - sudo systemctl restart dnsmasq
+9. Block outbound NTP traffic from the internal network:
+   - sudo nft insert rule ip filter forward iif "eth0" udp dport 123 drop
+   - sudo nft insert rule ip filter forward iif "eth0" tcp dport 123 drop
+   - NOTE: Use 'insert' instead of 'add' in nft command to ensure the firewall rule sits above the general iif port forwarding rules, or it won't trigger. Using add places the rule at the bottom of the chain.
+10. Persist the chainges: sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+11. SSH to Data_Node
+12. Configure /etc/chrony.conf:
+    - Comment out the NTP pool. It's not longer needed with the traffic being blocked at the firewall.
+    - Add 'server 10.10.30.1 iburst' right below to point Data_Node to the gateway
+13. Restart chronyd: sudo systemctl restart chronyd
+14. Test Data_Node is now synced to the gateway:
+    - chronyc sources -v
+    - chronyc tracking
