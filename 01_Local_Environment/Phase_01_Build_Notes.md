@@ -8,13 +8,13 @@
 
 *** Create three VMs via CLI (Powershell) ***
 
-# 1. Define VM configuration parameters
+* 1. Define VM configuration parameters *
 $vmName = "MyHeadlessVM"
 $memoryAmount = 4GB
 $diskSize = 60GB
 $path = "C:\Hyper-V\Virtual Machines"
 
-# 2. Create the VM attached initially to the custom internal switch
+* 2. Create the VM attached initially to the custom internal switch *
 New-VM -Name $vmName `
        -MemoryStartupBytes $memoryAmount `
        -NewVHDPath "$path\$vmName\$vmName.vhdx" `
