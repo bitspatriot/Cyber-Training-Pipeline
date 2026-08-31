@@ -1,4 +1,4 @@
-*** Install Hyper-V via CLI ***
+# Task 1.1: Install Hyper-V via CLI
 
 1. Launch an elevated command prompt
 2. Command: dism.exe /Online /Enable-Feature /FeatureName:Microsoft-Hyper-V /All
@@ -6,15 +6,15 @@
 4. List Existing Network Adapters: Get-NetAdapter | ft Name, Status
 5. Create new Internal Switch: New-VMSwitch -name "Lab_Internal" -SwitchType Internal
 
-*** Create three VMs via CLI (Powershell) ***
+# Task 1.2: Create three VMs via CLI (Powershell)
 
-# 1. Define VM configuration parameters
+1. Define VM configuration parameters *
 $vmName = "MyHeadlessVM"
 $memoryAmount = 4GB
 $diskSize = 60GB
 $path = "C:\Hyper-V\Virtual Machines"
 
-# 2. Create the VM attached initially to the custom internal switch
+2. Create the VM attached initially to the custom internal switch *
 New-VM -Name $vmName `
        -MemoryStartupBytes $memoryAmount `
        -NewVHDPath "$path\$vmName\$vmName.vhdx" `
@@ -24,13 +24,13 @@ New-VM -Name $vmName `
 
 *** IMPORTANT: Windows Server requires a Generation 1 to bootstrap the image. Generation 2 can be used for the Debian/Linux VMs. If you create the Windows VM as Generation 2, you'll have to recreate it. ***
 
-# 3. Add the second network interface for the Hyper-V Default Switch
+*** Add the second network interface for the Hyper-V Default Switch ***
 Add-VMNetworkAdapter -VMName $vmName -SwitchName "Default Switch"
 
-# 4. Optional: Enable Automatic Checkpoints / Set CPU cores
+*** Optional: Enable Automatic Checkpoints / Set CPU cores ***
 Set-VMProcessor -VMName $vmName -Count 2
 
-# 5. Start the VM headless (in the background, without launching Hyper-V Manager GUI)
+*** Start the VM headless (in the background, without launching Hyper-V Manager GUI) ***
 Note: Start downloading all three ISOs prior to disabling the adapter.
 
 1. Add DVD Drive and Mount ISO to the VM
@@ -43,7 +43,7 @@ Windows Server VM/Node
 
 2. Start the VM via CLI: Start-VM -Name $vmName
 
-*** Infra_Node Preparation for DHCP/DNS (Task 1.3) ***
+# Task 1.3: Infra_Node Preparation for DHCP/DNS (Task 1.3)
 
 Discovered Debian Dependencies:
 1. sudo isn't installed
@@ -63,7 +63,7 @@ STEPS:
 
 *** Note: You won't be able to download any packages needed (e.g. dmasq) without performing these preliminary steps ***
 
-# 6.Bind static IP address to eth1
+*** Bind static IP address to eth1 ***
 
 1. ip -br link
    a. Interface attached to the Hyper-V Default Switch should already have a 172.x.x.x address. The second interface attached to the 'Lab_Internal' switch shouldn't have an IP assigned
@@ -79,63 +79,12 @@ STEPS:
 6. sudo systemctl restart systemd-networkd
 7. ip -4 addr show eth0 (should now see eth0 with IP address 10.10.10.1)
 
-# 7. Build dnsmasq from source
+*** Build dnsmasq from source ***
 1. cd /usr/local/src
 2. sudo wget https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
 3. sudo tar xzf dnsmasq-2.91.tar.gz
 4. cd dnsmasq-2.91
-5. Create and configure the /etc/dnsmasq.conf and /etc/systemd/system/dnsmasq.service daemon:
-
-*** dnsmasq.conf ***
-
-# --- Interface binding ---
-interface=eth1
-bind-interfaces
-listen-address=10.10.0.1
-# never touch the external/other interfaces
-except-interface=lo
-
-# --- DNS ---
-# act as the resolver for the internal net
-domain-needed
-bogus-priv
-no-resolv
-server=1.1.1.1        # upstream forwarders for anything non-local
-server=9.9.9.9
-domain=squadron.internal
-local=/squadron.internal/  # local domain, answered authoritatively
-domain=internal.lan
-expand-hosts
-
-# --- DHCP ---
-dhcp-range=10.10.0.100,10.10.0.200,255.255.255.0,12h
-dhcp-option=option:router,10.10.0.1       # gateway = this node
-dhcp-option=option:dns-server,10.10.0.1   # clients use us for DNS
-dhcp-authoritative
-
-# --- logging (useful while validating) ---
-log-queries
-log-dhcp
-
-*** END - ALWAYS test you dnsmasq.conf file for syntax error with 'sudo /usr/local/sbin/dnsmasq --test' command ***
-
-*** dnsmasq.service ***
-
-[Unit]
-Description=dnsmasq (compiled from source)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-ExecStartPre=/usr/local/sbin/dnsmasq --test
-ExecStart=/usr/local/sbin/dnsmasq -k --conf-file=/etc/dnsmasq.conf
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-
-*** END ***
+5. Create and configure the /etc/dnsmasq.conf and /etc/systemd/system/dnsmasq.service daemon: (config files are located in 02_Config_Files)
 
 *** START THE DNSMASQ DAEMON: Windows_Node and Data_Node should be issued a leased IP from dnsmasq and the proper squadron.local domain with an authoritative DNS of you configured server IP (e.g. 10.10.30.1 /domain: squadron.internal) ***
 
@@ -148,5 +97,115 @@ INTERNAL RANGE NOTE + ADD dnsmasq.conf and dnsmasq.service will be added as sepe
    - Only Data_Node and Windows_Node should touch this network
 2. Default Switch Interface = eth1 (MAC: 0C-74-02)
 
-# 9. 
+*** Enable IP Forwarding on the Data_Node and Windows_Node ***
+1. ip -br addr
+2. ip route show default (eth1 should be your WAN uplink)
+3. Enable IP Forwarding:
+   - Immediate: sudo sysctl -w net.ipv4.ip_forward=1
+   - Persistent: echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-ipforward.conf
+   - sudo sysctl --system
+4. Confirm IP Forwarding id Enabled: sysctl net.ipv4.ip_forward (should read = 1)
 
+*** Setup NAT + nftables Forwarding Rules on Infra_Node ***
+1. Infra_Node uses nftables. Create following rules on the Infra_Node with the below nftables commands:
+2. NAT table + masquerade lab traffic out the uplink
+   - sudo nft add table ip nat
+   - sudo nft add chain ip nat postrouting '{ type nat hook postrouting priority 100 ; }'
+   - sudo nft add rule ip nat postrouting ip saddr 10.10.30.0/24 oif "eth1" masquerade
+3. Filter table + forwarding bi-directional
+   - sudo nft add table ip filter
+   - sudo nft add chain ip filter forward '{ type filter hook forward priority 0 ; }'
+   - sudo nft add rule ip filter forward iif "eth0" oif "eth1" accept
+   - sudo nft add rule ip filter forward iif "eth1" oif "eth0" ct state related,established accept
+4. Verify the rulesdet landed: sudo nft list ruleset
+   - You should see the masquerade rule under postrouting and the two forward rules.
+5. Test that you can ping 8.8.8.8 and google.com from both the Data_Node and Windows_Node BEFORE making the rules persistent.
+6. If you can now route throgh the Infra_Node out to the internet, make the nft ruleset persistent:
+   1. sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+   2. sudo systemctl enable --now nftables
+
+*** PAUSE: CREATE NEW CHECKPOINTS IN HYPER-V FOR ALL VMS ***
+
+# Task 1.4: Boot and SSH Hardening
+
+*** Generate SSH key pair on Infra_Node and distribute to Data_Node ***
+1. On Infra Node: ssh-keygen -t ed25519 -C "infra-node -> data-node" -f ~/.ssh/id_ed25519
+2. ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<data_node_ip>
+3. SSH to Data_Node to test: ssh -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116 / Substitue your hostname and IP
+4. Sanity Check (force no Password Authentication): ssh -o PasswordAuthentication=no -i /home/sandbox_user/.ssh/id_ed25519 'sandbox_user@10.10.30.116
+5. If ssh access worked without password authentication, proceed to disable password authentication (CREATE CHECKPOINT ON DATA_NODE FIRST AS BACKUP PLAN!)
+
+*** Disable password authentication on Data_Node ***
+1. SSH to Data_Node
+2. sudo nano /etc/ssh/sshd_config.d/10-hardening.conf (add following drop-in rules)
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+3. Test the configuration syntax: sudo sshd -t
+4. Reload sshd: sudo systemctl reload sshd
+5. Test that ssh key authentication still works (Step 3 in 'Generate SSH key pair' steps above)
+6. Test that the door is closed: ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no <user>@data-node.squadron.internal (should receive permission denied message)
+
+# Task 1.5: Authoritative Time
+
+1. Install chrony: sudo apt install chrony
+2. Configure /etc/chrony/chrony.conf
+Add the following lines below "Use Debian vendor zone":
+- *** Serve time to the internal network ***
+allow 10.10.30.0/24
+- *** Serve even if upstream is briefly unreachable ***
+local stratum 10
+3. sudo systemctl restart chrony
+4. sudo systemctl enable chrony
+5. chronyc sources -v
+6. chronyc tracking
+7. Advertise the time server via DHCP:
+   - Add 'dhcp-option=option:ntp-server,10.10.30.1' to /etc/dnsmasq.conf
+8. Test and reload dnsmasq: 
+   - sudo /usr/local/sbin/dnsmasq --test
+   - sudo systemctl restart dnsmasq
+9. Block outbound NTP traffic from the internal network:
+   - sudo nft insert rule ip filter forward iif "eth0" udp dport 123 drop
+   - sudo nft insert rule ip filter forward iif "eth0" tcp dport 123 drop
+   - NOTE: Use 'insert' instead of 'add' in nft command to ensure the firewall rule sits above the general iif port forwarding rules, or it won't trigger. Using add places the rule at the bottom of the chain.
+10. Persist the changes: sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+11. SSH to Data_Node
+12. Configure /etc/chrony.conf:
+    - Comment out the NTP pool. It's not longer needed with the traffic being blocked at the firewall.
+    - Add 'server 10.10.30.1 iburst' right below to point Data_Node to the gateway
+13. Restart chronyd: sudo systemctl restart chronyd
+14. Test Data_Node is now synced to the gateway:
+    - chronyc sources -v
+    - chronyc tracking
+
+# Task 1.6: Storage and Persistence
+
+1. Open PowerShell (create 4GB dynamic VHDX): New-VHD -Path "C:\<Hyper-V path>\Data_Node\ops_disk.vhdx" -SizeBytes 4GB -Dynamic
+2. Attach to the Data_Node's SCSI controller: Add-VMHardDiskDrive -VMName "Data_Node" -Path "C:\Program Files\Hyper-V\Virtual Machines\Data_Node\ops_disk.vhdx"
+3. Log into Data_Node to confirm that the new disk was created and attached:
+   - lsblk
+   - sudo dmesg | tail -20  # shows the newly attached disk
+   - Note: Data_Node attached the new drive to 'sdb'
+4. Partition into two equal partitions with 'parted' utility:
+   - sudo parted /dev/sdb --script mklabel gpt
+   - sudo parted /dev/sdb --script mkpart primary ext4 1MiB 2GiB
+   - sudo parted /dev/sdb --script mkpart primary xfs 2GiB 100%
+5. Verify the new layout: 'sudo parted /dev/sdb --script print && lsblk /dev/sub'. Two partitions should be seen: sdb1 and sdb2
+6. Create the filesystems:
+   - ext4 on the first partition: sudo mkfs.ext4 /dev/sdb1
+   - xfs on the second partition: sudo mkfs.xfs /dev/sdb2
+7. Get the UUIDs of each partition for /etc/fstab mounting: sudo blkid /dev/sdb1 /dev/sdb2 (save them in a txt document somewhere on data_node)
+8. Create mount points and add them /etc/fstab by UUID:
+- sudo mkdir -p /mnt/ops_data /mnt/log_data
+- sudo nano /etc/fstab
+- Add these two lines:
+  - UUID=<sdb1 UUID>   /mnt/ops_data   ext4   defaults   0 2
+  - UUID=<sdb2 UUID>   /mnt/log_data   xfs    defaults   0 2
+  - NOTE: To see the clean UUIDs, run 'lsblk -o NAME, UUID,FSTYPE /dev/sdb
+9. Test fstab before rebooting:
+- sudo systemctl daemon-reload
+- sudo mount -a
+- lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sdb
+- findmnt --verify
+- df -h /mnt/ops_data /mnt/log_data
