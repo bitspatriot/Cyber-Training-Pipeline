@@ -234,7 +234,43 @@ local stratum 10
   
 # Task 1.8: Systemd Daemon & Windows Task Scheduler
 
-*** Build Data_Node metics daemon ***
+*** Build Data_Node metics bash script ***
 1. sudo nano /usr/local/bin/metrics-logger.sh
 2. Created bash script dropped it into new repository folder "03_Scripts"
 3. Make script executable: sudo chmod +x /usr/local/bin/metrics-logger.sh
+4. Test the script before turning it into a daemon:
+   - sudo /usr/local/bin/metrics-logger.sh &
+   - sleep 65
+   - tail /mnt/log_data/metrics.log
+   - Should see 3-4 timestamed metrics lines
+
+*** Create the metrics-logger daemon ***
+1. sudo nano /etc/systemd/system/metrics-logger.service
+2. Created service daemon /etc/systemd/system/metrics-logger.service and dropped it into new repository folder "03_Scripts"
+3. Enable, start and watch new entries in /mnt/log_data/metrics.log
+   - sudo systemctl daemon-reload
+   - sudo systemctl enable --now metrics-logger.service
+   - sudo systemctl status metrics-logger.service --no-pager
+   - tail -f /mnt/log_data/metrics.log
+
+*** Ensure that restart-on-death works ***
+1. sudo systemctl status metrics-logger.service | grep PID
+2. sudo kill <pid>
+3. sleep 6
+4. sudo systemctl status metrics-logger.service --no-pager   # should show running again, new PID
+5. Should see that daemon is still active
+
+*** Ensure that the daemon survives a Data_Node reboot
+1. tail -1 /mnt/log_data/metrics.log
+2. sudo reboot
+3. After it comes back up:
+   - tail -5 /mnt/log_data/metrics.log
+   - systemctl is-enabled metrics-logger.service
+
+*** Windows_Node: SSH client, key trust and scheduled pull***
+1. Check to make sure OpenSSH client is installed on Windows_Node: Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Client*'
+2. If the result is "Installed," proceed to next step. If the result is "NotPresent," run 'Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0'
+3. Verify installation: ssh -V
+
+*** Generate new key pair on Windows_Node ***
+1. ssh-keygen -t ed25519 -C "windows-node -> data-node"
