@@ -1,0 +1,14 @@
+[Unit]
+Description=CPU/RAM metrics logger
+After=local-fs.target
+# ensure the log's mountpoint is up before we start writing
+RequiresMountsFor=/mnt/log_data
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/metrics-logger.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
