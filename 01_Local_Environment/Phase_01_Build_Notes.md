@@ -169,7 +169,7 @@ local stratum 10
    - sudo nft insert rule ip filter forward iif "eth0" udp dport 123 drop
    - sudo nft insert rule ip filter forward iif "eth0" tcp dport 123 drop
    - NOTE: Use 'insert' instead of 'add' in nft command to ensure the firewall rule sits above the general iif port forwarding rules, or it won't trigger. Using add places the rule at the bottom of the chain.
-10. Persist the chainges: sudo sh -c 'nft list ruleset > /etc/nftables.conf'
+10. Persist the changes: sudo sh -c 'nft list ruleset > /etc/nftables.conf'
 11. SSH to Data_Node
 12. Configure /etc/chrony.conf:
     - Comment out the NTP pool. It's not longer needed with the traffic being blocked at the firewall.
@@ -178,3 +178,34 @@ local stratum 10
 14. Test Data_Node is now synced to the gateway:
     - chronyc sources -v
     - chronyc tracking
+
+*** Storage and Persistence ***
+
+1. Open PowerShell (create 4GB dynamic VHDX): New-VHD -Path "C:\<Hyper-V path>\Data_Node\ops_disk.vhdx" -SizeBytes 4GB -Dynamic
+2. Attach to the Data_Node's SCSI controller: Add-VMHardDiskDrive -VMName "Data_Node" -Path "C:\Program Files\Hyper-V\Virtual Machines\Data_Node\ops_disk.vhdx"
+3. Log into Data_Node to confirm that the new disk was created and attached:
+   - lsblk
+   - sudo dmesg | tail -20  # shows the newly attached disk
+   - Note: Data_Node attached the new drive to 'sdb'
+4. Partition into two equal partitions with 'parted' utility:
+   - sudo parted /dev/sdb --script mklabel gpt
+   - sudo parted /dev/sdb --script mkpart primary ext4 1MiB 2GiB
+   - sudo parted /dev/sdb --script mkpart primary xfs 2GiB 100%
+5. Verify the new layout: 'sudo parted /dev/sdb --script print && lsblk /dev/sub'. Two partitions should be seen: sdb1 and sdb2
+6. Create the filesystems:
+   - ext4 on the first partition: sudo mkfs.ext4 /dev/sdb1
+   - xfs on the second partition: sudo mkfs.xfs /dev/sdb2
+7. Get the UUIDs of each partition for /etc/fstab mounting: sudo blkid /dev/sdb1 /dev/sdb2 (save them in a txt document somewhere on data_node)
+8. Create mount points and add them /etc/fstab by UUID:
+- sudo mkdir -p /mnt/ops_data /mnt/log_data
+- sudo nano /etc/fstab
+- Add these two lines:
+  - UUID=<sdb1 UUID>   /mnt/ops_data   ext4   defaults   0 2
+  - UUID=<sdb2 UUID>   /mnt/log_data   xfs    defaults   0 2
+  - NOTE: To see the clean UUIDs, run 'lsblk -o NAME, UUID,FSTYPE /dev/sdb
+9. Test fstab before rebooting:
+- sudo systemctl daemon-reload
+- sudo mount -a
+- lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT /dev/sdb
+- findmnt --verify
+- df -h /mnt/ops_data /mnt/log_data
