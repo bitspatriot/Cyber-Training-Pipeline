@@ -274,3 +274,11 @@ local stratum 10
 
 *** Generate new key pair on Windows_Node ***
 1. ssh-keygen -t ed25519 -C "windows-node -> data-node"
+2. Contraint: you'll need to get the public key from the Windows_Node -> Infra_Node -> Data_Node because the SSH path from Windows_Node -> Data_Node isnt' authorized yet. This will require OpenSSH server to be running on the Infra_Node, and it's not installed yet:
+   - sudo apt install openssh-server
+   - sudo systemctl enable --now ssh
+   - sudo ss -tlnp | grep :22
+3. From Windows_Node (non-admin Powershell): scp "$env:USERPROFILE\.ssh\id_ed25519.pub" sandbox_user@10.10.30.1:/tmp/windows-node.pub
+4. From Infra_Node: ssh sandbox_user@<Data_Node IP> "cat >> ~/.ssh/authorized_keys" < /tmp/windows-node.pub (this copies the pubpic key from the windows-node.pub key on Windows_Node to the authorized_keys file on the Data_Node)
+5. Verify on Data_Node: cat ~/.ssh/authorized_keys (should see 'windows-node -> data_node' public key entry)
+6. 
