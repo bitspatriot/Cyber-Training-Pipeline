@@ -275,10 +275,48 @@ local stratum 10
 *** Generate new key pair on Windows_Node ***
 1. ssh-keygen -t ed25519 -C "windows-node -> data-node"
 2. Contraint: you'll need to get the public key from the Windows_Node -> Infra_Node -> Data_Node because the SSH path from Windows_Node -> Data_Node isnt' authorized yet. This will require OpenSSH server to be running on the Infra_Node, and it's not installed yet:
+   - On Windows_Node elevated PowerShell: Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Client*'
    - sudo apt install openssh-server
    - sudo systemctl enable --now ssh
    - sudo ss -tlnp | grep :22
 3. From Windows_Node (non-admin Powershell): scp "$env:USERPROFILE\.ssh\id_ed25519.pub" sandbox_user@10.10.30.1:/tmp/windows-node.pub
 4. From Infra_Node: ssh sandbox_user@<Data_Node IP> "cat >> ~/.ssh/authorized_keys" < /tmp/windows-node.pub (this copies the pubpic key from the windows-node.pub key on Windows_Node to the authorized_keys file on the Data_Node)
 5. Verify on Data_Node: cat ~/.ssh/authorized_keys (should see 'windows-node -> data_node' public key entry)
-6. 
+6. Test connection betweek Windows_Node and Data_Node: ssh -i $env:USERPROFILE\.ssh\id_ed25519 <user>@10.10.30.x "cat /mnt/log_data/metrics.log | tail -5"
+
+*** Create new LabOps director and the Scheduled Task ***
+1. Windows_Node Powershell: New-Item -ItemType Directory -Force -Path C:\ProgramData\LabOps | Out-Null
+2. Create pull-metrics.ps1 to outputs the '/mnt/log_data/metrics.log' entries to the 'C:\ProgramData\LabOps\metrics.log
+   - pull-metrics.ps1 created and added to '03_Scripts' in the repository
+3. Create the scheduled task through Powershell on Windows_Node:
+
+
+*** Document the two identities/key fingerprints on Data_Node ***
+1. sudo journalctl -u sshd | grep "Accepted publickey" | tail
+2. ssh-keygen -lf ~/.ssh/authorized_keys
+- Documented accepted publickey connections on Data_Node:
+256 SHA256:Z7PcV0rIfwYrrgEzjL2r1GFx6o8mCIbaOLbzEn1aw8w infra-node -> data-node (ED25519)
+256 SHA256:jV/szElaOX9R0OzsKlq06XJm8L8FSk1wyg6iB8qnb2k windows-node -> data-node (ED25519)
+
+INFRA_NODE FINGERPRINT: Sep 01 10:26:24 localhost.localdomain sshd-session[799688]: Accepted publickey for sandbox_user from 10.10.30.1 port 37756 ssh2: ED25519 SHA256:Z7PcV0rIfwYrrgEzjL2r1GFx6o8mCIbaOLbzEn1aw8w
+
+WINDOWS_NODE FINGERPRINT: Sep 01 11:10:01 localhost.localdomain sshd-session[826445]: Accepted publickey for sandbox_user from 10.10.30.118 port 51778 ssh2: ED25519 SHA256:jV/szElaOX9R0OzsKlq06XJm8L8FSk1wyg6iB8qnb2k
+
+# CLEANUP TASK: Install and run gitleaks on Infra_Node
+
+1. cd /tmp
+2. wget https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz (Check https://github.com/gitleaks/gitleaks/releases for the latest release)
+3. tar xzf gitleaks_8.28.0_linux_x64.tar.gz
+4. sudo mv gitleaks /usr/local/bin/
+5. gitleaks version
+6. Git isn't installed on Infra_Node: sudo apt install git
+7. Navigate to repository folder on Infra_Node. If not yet cloned, clone the repo to /tmp/: 
+   - git clone <repo-url> squadron-lab-scan
+   - cd squadron-lab-scan
+8. Navigate to squadron-lab-scan
+9. Ensure all of the repository's commit history is present:
+   - git log --oneline
+   - git reve-list --count HEAD
+10. If all history is present, run gitleaks agains the repository clone: gitleaks detect --source . --report-format json --report-path /tmp/gitleaks-report.json --verbose; echo "gitleaks exit code: $?"
+11. Confirm that ther's 0 findings
+12. Keep the gitleaks report that was created, but delete the clone, so there's isn't a second copy of potentially exposed secrets.
