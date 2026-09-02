@@ -36,3 +36,16 @@
 2. From the Infra_Node: curl -v http://10.10.30.x:8080/
 3. Should she '200 OK' and the contents of index.html
 
+# Task 2.2: Network-Wide DNS Spoofing
+1. sudo nano /etc/dnsmasq.conf
+2. Bind Data_Node IP lease so it doesn't receive a new address and break the spoofing at the end it's 12H lease: dhcp-host=<data-node-MAC>,data-node,10.10.30.116 (or whatever Data_Node's IP is)
+   - Grab MAC from dnsmasq if unknown: grep 10.10.30.116 /var/lib/misc/dnsmasq.leases
+   - If you bound Data_Node to a new IP, force it to pick up the new reservation: sudo nmcli device reapply <iface>
+3. sudo /usr/local/sbin/dnsmasq --test
+4. sudo systemctl restart dnsmasq
+5. Install 'dig': sudo apt install dnsutils
+6. Verify the spoo resolves from the Infra_Node: dig @10.10.30.1 update.microsoft.com +short
+   - Should return <Data_Node IP> and not the real microsoft address
+
+*** Disable IPv6 on the Windows_Node's Lab_Internal adapter from Powershell ***
+1. 
