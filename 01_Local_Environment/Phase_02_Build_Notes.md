@@ -64,3 +64,24 @@
 3. Test #2 (from Powershell):
 - "Resolved to: $((Resolve-DnsName update.microsoft.com).IPAddress)" 
 - (Invoke-WebRequest -Uri "http://update.microsoft.com:8080" -UseBasicParsing).Content
+
+# Task 2.3: The Bastion Pattern
+
+*** Establish the Host can reach Infra_Node ***
+1. Infra_Node Host Interface (eth1): 172.17.250.19/20 (Not Lab_Internal 10.10.30.1/24 interface (eth0))
+   - If the Default Switch IP is NAT's and can chage if the workstation IP is given a new DHCP lease from the enterprise LAN. Keep this in mind for the future.
+
+*** Enable OpenSSH on the Windows 11 Host (Powershell) ***
+1. Check if OpenSSH client is already intalled: Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Client*'
+   - If not: Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+   - Verify install: ssh -V
+
+*** Generate a key pair on the Host workstation and set a passphrase this time ***
+1. ssh-keygen -t ed25519 -C "host-workstation -> infra-node"
+   - Accept default key location
+   - Don't forget to set a passphrase when prompted
+
+*** Authorize the Host's public key on the Infra_Node ***
+1. Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
+2. ssh sandbox_user@<INFRA_NODE_DEFAULT_IP> "echo 'PASTE_PUBKEY_LINE' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+3. ssh sandbox_user@<INFRA_NODE_DEFAULT_IP>
