@@ -48,4 +48,19 @@
    - Should return <Data_Node IP> and not the real microsoft address
 
 *** Disable IPv6 on the Windows_Node's Lab_Internal adapter from Powershell ***
-1. 
+1. Find the Lab_Internal adapter name: Get-NetAdapter
+2. Disable-NetAdapterBinding -Name "vEthernet (Lab_Internal)" -ComponentID ms_tcpip6
+3. Confirm IPv6 is disabled: Get-NetAdapterBinding -Name "vEthernet (Lab_Internal)" -ComponentID ms_tcpip6
+4. ipconfig /flushdns
+5. From Windows_Node: Confirm the poisioned DNS spoof resolves: Resolve-DnsName update.microsoft.com
+   - Should return the Data_Nodes IP (10.10.30.116)
+
+*** Request Microsoft website from Powershell ***
+1. Invoke-WebRequest -Uri "http://update.microsoft.com:8080" -UseBasicParsing
+2. Test #1 (from Powershell):
+   - $r = Invoke-WebRequest -Uri "http://update.microsoft.com:8080" -UseBasicParsing
+   - $r.StatusCode (should see 200)
+   - $r.Content (should see the HTML you put in /var/www/html/index.html)
+3. Test #2 (from Powershell):
+- "Resolved to: $((Resolve-DnsName update.microsoft.com).IPAddress)" 
+- (Invoke-WebRequest -Uri "http://update.microsoft.com:8080" -UseBasicParsing).Content
