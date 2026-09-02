@@ -290,7 +290,6 @@ local stratum 10
    - pull-metrics.ps1 created and added to '03_Scripts' in the repository
 3. Create the scheduled task through Powershell on Windows_Node:
 
-
 *** Document the two identities/key fingerprints on Data_Node ***
 1. sudo journalctl -u sshd | grep "Accepted publickey" | tail
 2. ssh-keygen -lf ~/.ssh/authorized_keys
@@ -304,19 +303,13 @@ WINDOWS_NODE FINGERPRINT: Sep 01 11:10:01 localhost.localdomain sshd-session[826
 
 # CLEANUP TASK: Install and run gitleaks on Infra_Node
 
-1. cd /tmp
-2. wget https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz (Check https://github.com/gitleaks/gitleaks/releases for the latest release)
-3. tar xzf gitleaks_8.28.0_linux_x64.tar.gz
-4. sudo mv gitleaks /usr/local/bin/
-5. gitleaks version
-6. Git isn't installed on Infra_Node: sudo apt install git
-7. Navigate to repository folder on Infra_Node. If not yet cloned, clone the repo to /tmp/: 
-   - git clone <repo-url> squadron-lab-scan
-   - cd squadron-lab-scan
-8. Navigate to squadron-lab-scan
-9. Ensure all of the repository's commit history is present:
+*** Now that Phase_01.md is completed, run gitleaks against the repository again ***
+
+1. Navigate to squadron-lab-scan
+2. Ensure the repository is current: git pull
+3. Ensure all of the repository's commit history is present:
    - git log --oneline
    - git reve-list --count HEAD
-10. If all history is present, run gitleaks agains the repository clone: gitleaks detect --source . --report-format json --report-path /tmp/gitleaks-report.json --verbose; echo "gitleaks exit code: $?"
-11. Confirm that ther's 0 findings
-12. Keep the gitleaks report that was created, but delete the clone, so there's isn't a second copy of potentially exposed secrets.
+4.  If all history is present, run gitleaks agains the repository clone: gitleaks detect --source . --report-format json --report-path /tmp/gitleaks-report.json --verbose; echo "gitleaks exit code: $?"
+5.  Confirm that ther's 0 findings
+6.  Keep the gitleaks report that was created, but delete the clone, so there's isn't a second copy of potentially exposed secrets.
