@@ -140,3 +140,14 @@
 3. ssh-keyscan 10.10.30.116 >> $env:USERPROFILE\.ssh\known_hosts
 4. Start-ScheduledTask -TaskName "LabOps-PullMetrics"
 5. Get-Content C:\ProgramData\LabOps\metrics.log -Tail 5
+   - Should see metrics.log data being ssh'd again on the Windows_Node
+
+# Task 2.4: SSH Local Port Forwarding
+
+NOTE: The hop through Infra_Node with Proxy_Jump is already build, so no additional flags are needed for the SSH tunnel
+1. ssh -L 9090:localhost:8080 data-node
+   - Leave shell open on the Data_Node. The tunnel exists only when the SSH connection is alive.
+2. Open browser on host and got to 'http://localhost:9090'
+3. Should see the Caddy page running on the Data_Node. The Host browser thinks it's talking to a local web service listening on port 9090.
+
+# Task 2.5: Headless Packet Capture
