@@ -1,0 +1,12 @@
+# The bastion — reachable from the Host on the Default Switch address
+Host infra-node
+    HostName 172.17.250.189
+    User sandbox_user
+    IdentityFile ~/.ssh/id_ed25519
+
+# The Data_Node — reached only by jumping through infra
+Host data-node
+    HostName 10.10.30.116
+    User sandbox_user
+    IdentityFile ~/.ssh/id_ed25519
+    ProxyJump infra-node
