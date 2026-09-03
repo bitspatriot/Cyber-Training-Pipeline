@@ -85,3 +85,36 @@
 1. Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
 2. ssh sandbox_user@<INFRA_NODE_DEFAULT_IP> "echo 'PASTE_PUBKEY_LINE' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 3. ssh sandbox_user@<INFRA_NODE_DEFAULT_IP>
+
+*** Configure OpenSSH agent on the Host ***
+1. Set-Service ssh-agent -StartupType Automatic
+2. Start-Service ssh-agent
+3. Confirm: Get-Service ssh-agent
+4. Add new key to agent so you stop getting prompted for passphrase: ssh-add $env:USERPROFILE\.ssh\id_ed25519
+5. List loaded key: ssh-add -l
+6. Test: ssh sandbox_user@<INFRA_NODE_DEFAULT_IP> (no longer asks for passphrase)
+
+*** Configure the hop to Data_Node in the SSH configuration - ProxyJump ***
+1. Host (Powershell): notepad $env:USERPROFILE\.ssh\config
+2. Created Host ssh config file and pushed it to 02_Config_Files\host_ssh in the repository
+3. Get your Host's public key over to Data_Node: (NOTE: unable to paste key from the Host to the Infra_Node, which is why the process below is created)
+   - Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
+   - cd $env:USERPROFILE\.ssh
+   - scp id_ed25519.pub <sanbox_user>@<INFRA_DEFAULT_IP>:/tmp/host.pub
+   - SSH to Infra_Node: ssh <sanbox_user>@<INFRA_DEFAULT_IP>
+   - cd /tmp
+   - Confirm the host.pub file landed on Infra_Node and look at the key: cat /tmp/host.pub
+     - Confirm there's a 'host-workstation -> data-node' comment at the end of the key. It will prevent confusion later. If you didn't add it during key creation, add it now.
+   - ssh <sandbox_user>@10.10.30.116 "cat >> ~/.ssh/authorized_keys" < /tmp/host.pub
+   - Verify the entry in now in the Data_Node's authorized_keys file: ssh <sandbox_user>@10.10.30.116 "cat ~/.ssh/authorized_keys"
+     - Should now see three keys, including 'host-workstation -> data-node' entry
+   - CLEAN UP: Delete the /tmp/host.pub key
+
+*** Test ProxyJump from the Host ***
+1. Should now be able to ssh from the host directly to the Data_Node: ssh data-node
+2. Confirm that ProxyJump is being applied to the IP:
+   - ssh -G 10.10.30.116 | Select-String "proxyjump|hostname"
+   - ssh -G data-node    | Select-String "proxyjump|hostname"
+   - Can now see that 'ssh data-node' shows that it's traversing through the bastion, and not being AgentForwarded
+3. Task deliverable (Document why ProxyJump is safer): ProxyJump is safer because the bastion is only a transport. It never gains access to your keys or agent. Agent forwarding trusts the bastion with live use of your keys, so a compromised bastion could impersonate you to every system your keys reach. The whole point of a bastion is that it's the exposed, higher-risk box, so you specifically don't want to hand it your credentials. That's why the task mandates ProxyJump and bans forwarding.
+
