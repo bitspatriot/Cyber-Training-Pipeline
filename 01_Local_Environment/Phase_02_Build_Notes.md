@@ -151,3 +151,22 @@ NOTE: The hop through Infra_Node with Proxy_Jump is already build, so no additio
 3. Should see the Caddy page running on the Data_Node. The Host browser thinks it's talking to a local web service listening on port 9090.
 
 # Task 2.5: Headless Packet Capture
+
+*** Install tcpdump on the Infra_Node and start a filtered capture ***
+1. Infra_Node: Install tcpdump: which tcpdump || sudo apt install tcpdump -y
+2. sudo tcpdump -i eth0 -n -w /tmp/dora-spoof.pcap 'udp port 67 or udp port 68 or udp port 53' (the goal is to capture the full Discover, Offer, Request, Acknowledge (DORA) exchange from DNS and DHCP)
+   - Optionally in a second terminal, you can watch the exchange in real time: sudo tcpdump -i eth0 -n 'udp port 67 or udp port 68 or udp port 53'
+3. From Windows_Node, force a full DORA:
+   - ipconfig /release
+   - ipconfig /renew
+   - ipconfig /flushdns
+   - Invoke-WebRequest -Uri "http://update.microsoft.com:8080" -UseBasicParsing
+     - Because the local DNS cache is empty, Windows sends a real DNS query for update.microsoft.com to the Infra_Node, and dnsmasq answers with the spoofed 10.10.30.116 address that's hosts poisioned DNS.
+4. Stop the capture on Infra_Node: (Ctrl + C)
+
+*** Pull the /tmp/dora-spoof.pcap back to Window_Node for analyis ***
+1. From Infra_Node: sudo chmod 644 /tmp/dora-spoof.pcap
+2. From Host: 
+   - cd $env:USERPROFILE\Downloads
+   - scp infra-node:/tmp/dora-spoof.pcap . (Get used to using the new Host alias' of infra-node and data-node so you don't have to keep typing the IP of each host)
+3. Install Wireshark on the Host: winget install WiresharkFoundation.Wireshark
