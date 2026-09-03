@@ -214,3 +214,6 @@ NOTE: The hop through Infra_Node with Proxy_Jump is already build, so no additio
 1. Remove-VMSnapshot -VMName Data_Node -Name "pre-fstab-break"
 2. Remove-VMSnapshot -VMName Infra_Node -Name "pre-fstab-break"
 3. Remove-VMSnapshot -VMName Windows_Node -Name "pre-fstab-break"
+
+# Task 2.7: The Cold Rebuild
+*** NOTE: Test needed to see if Phase_02_Build_Notes can be used to rebuild Data_Node solely from the documentation. ***
