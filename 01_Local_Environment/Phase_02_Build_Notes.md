@@ -170,3 +170,7 @@ NOTE: The hop through Infra_Node with Proxy_Jump is already build, so no additio
    - cd $env:USERPROFILE\Downloads
    - scp infra-node:/tmp/dora-spoof.pcap . (Get used to using the new Host alias' of infra-node and data-node so you don't have to keep typing the IP of each host)
 3. Install Wireshark on the Host: winget install WiresharkFoundation.Wireshark
+4. From Powershell: & "C:\Program Files\Wireshark\tshark.exe" -r $env:USERPROFILE\Downloads\dora-spoof.pcap -Y 'dns.qry.name == "update.microsoft.com"'
+   - Should see (Wireshark (GUI) screenshot added to '01_Local_Environment' folder in repository):
+     - 26 208.767467 10.10.30.118 → 10.10.30.1   DNS 80 Standard query 0x8c1f A update.microsoft.com
+     - 27 208.767614   10.10.30.1 → 10.10.30.118 DNS 96 Standard query response 0x8c1f A update.microsoft.com A 10.10.30.116
