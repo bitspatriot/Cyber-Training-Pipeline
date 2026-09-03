@@ -118,3 +118,25 @@
    - Can now see that 'ssh data-node' shows that it's traversing through the bastion, and not being AgentForwarded
 3. Task deliverable (Document why ProxyJump is safer): ProxyJump is safer because the bastion is only a transport. It never gains access to your keys or agent. Agent forwarding trusts the bastion with live use of your keys, so a compromised bastion could impersonate you to every system your keys reach. The whole point of a bastion is that it's the exposed, higher-risk box, so you specifically don't want to hand it your credentials. That's why the task mandates ProxyJump and bans forwarding.
 
+*** Record and Regenerate Data_Node's host keys ***
+1. On Host: # from the Host, after first connecting via `ssh data-node`, the key is pinned in known_hosts: ssh-keygen -lf $env:USERPROFILE\.ssh\known_hosts
+2. On Data_Node (sanity check): sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+   - Note the SHA256 fingerprint in your documents
+3. sudo rm /etc/ssh/ssh_host_*
+4. sudo ssh-keygen -A (regenerates a fresh set)
+5. sudo systemctl restart sshd
+   - Note the new SHA256 fingerprint in your documents
+6. ssh data-node
+   - Host should refuse the connection with a loud man-in-the-middle potential attack warning because the host key that Data_Node pinned has changed.
+7. Fix the broken connection by deleting the stale fingerprint and reconnecting from the Host:
+   - ssh-keygen -R data-node
+   - ssh-keygen -R 10.10.30.116
+   - ssh data-node
+8. Should now be prompted to accept the new key
+
+*** Fix the Windows_Node scheduled metrics pull from scheduled Task ***
+1. Understanding: Regenerating the Data_Node's hosy key breaks Task 1.8 because it's SSH calls now fail.
+2. ssh-keygen -R 10.10.30.116
+3. ssh-keyscan 10.10.30.116 >> $env:USERPROFILE\.ssh\known_hosts
+4. Start-ScheduledTask -TaskName "LabOps-PullMetrics"
+5. Get-Content C:\ProgramData\LabOps\metrics.log -Tail 5
