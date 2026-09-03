@@ -174,3 +174,43 @@ NOTE: The hop through Infra_Node with Proxy_Jump is already build, so no additio
    - Should see (Wireshark (GUI) screenshot added to '01_Local_Environment' folder in repository):
      - 26 208.767467 10.10.30.118 → 10.10.30.1   DNS 80 Standard query 0x8c1f A update.microsoft.com
      - 27 208.767614   10.10.30.1 → 10.10.30.118 DNS 96 Standard query response 0x8c1f A update.microsoft.com A 10.10.30.116
+  
+# Task 2.6: Self-Sabotage & Recovery
+*** IMPORTANT: Snapshot all your VMs and set a root on the Data_Node. You will get stuck and lose all of your work on the Data_Node if you skip this step!! ***
+1. Snapshot VMs in Powershell:
+   - Checkpoint-VM -Name Infra_Node -SnapshotName "pre-fstab-break"
+   - Checkpoint-VM -Name Data_Node  -SnapshotName "pre-fstab-break"
+   - Checkpoint-VM -Name Windows_Node -SnapshotName "pre-fstab-break"
+2. Confirm that root account is usable: sudo passwd -S root
+3. Output showing "P" means root is usable. Set the password: sudo passwd root
+
+*** Introduce the /etc/fstab typo ***
+1. sudo nano /etc/fstab
+2. Find the /mnt/ops_data line and alter one hex character in it's UUID (e.g. ...a1b2 -> ...a1c2)
+   - My example: changed the first character of the /mnt/ops_data UUID from "d" to "e"
+3. Save the /etc/fstab file
+4. Reboot the Data_Node: sudo reboot
+
+*** Get a recovery shell ***
+1. Data_Node should fail to boot and will ask for root password. Don't enter it
+2. Hit Ctrl+Alt+Del to reboot and access the GRUB loader
+3. Highlight the default Rocky Linux entry and press "e"
+4. Find the kernel line staring with 'linux' and go to the very end of the line
+5. Append 'rd.break' to that line
+6. Hit Ctrl+X or F10 to reboot
+7. 'rd.break' will drop you into a shell
+8. The real root directory boots in a read-only state at /sysroot. Mount /sysroot with read+write privileges: 
+   - mount -o remount,rw /sysroot
+   - chroot /sysroot
+9. Fix the UUID typo in /etc/fstab: vim /etc/fstab
+10. Save /etc/fstab
+11. Test /etc/fstab: mount -a (no error means that fstab mounted cleanly)
+12. Reboot: for 'rd.break' method, enter 'exit', and then 'exit' again
+13. Data_Node should boot properly:
+    - Log into Data_Node and make sure /mnt/ops_data and /mnt/log_data mounted correctly
+    - Check status of metrics-logger: systemctl status metrics-logger.service
+
+*** Cleanup VM snapshots ***
+1. Remove-VMSnapshot -VMName Data_Node -Name "pre-fstab-break"
+2. Remove-VMSnapshot -VMName Infra_Node -Name "pre-fstab-break"
+3. Remove-VMSnapshot -VMName Windows_Node -Name "pre-fstab-break"
