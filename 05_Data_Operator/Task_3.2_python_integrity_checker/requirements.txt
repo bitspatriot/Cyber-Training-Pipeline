@@ -1,0 +1,2 @@
+# integrity_check.py and compare_hashes.py use only the Python standard library.
+# No third-party dependencies are required.

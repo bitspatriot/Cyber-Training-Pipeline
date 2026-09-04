@@ -1,0 +1,3 @@
+Status,File_Path,Old_Hash,New_Hash
+ADDED,/etc/python_integrity_test.txt,,
+MODIFIED,/etc/hosts,f573171a268a0ac3c6cd99ce0f631e9b0becf81a1ce94a266dff6176a091e2d2,a0bce1e276c3a095dd662f011a6a174124bc0d89eece2bc5e681839e449aaa1a
