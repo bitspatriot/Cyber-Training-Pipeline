@@ -56,3 +56,15 @@ echo "(above should equal 90 — matches the python output)"
 
 echo "=== byte-level tail to confirm no trailing blank line ==="
 tail -c 40 suspicious_ips.txt | xxd | tail -3
+
+# Task 3.4 - The Threat Intel Scraper
+1. mkdir -p ~/05_Data_Operator/Task_3.4_mitre_scraper
+2. cd ~/05_Data_Operator/Task_3.4_mitre_scraper
+3. Create virtual environment to install 'requests' and 'beautifulsoup4.' (This constraint exists specifically for this reason. If you try to intall these packages outside the venv, they will fail. Should see "(.venv)" at the front of your prompt, indicating that pip and python both point at the isolated vurtual environment.)
+   - python3 -m venv .venv
+   - source .venv/bin/activate
+   - pip install -r requirements.txt
+4. sudo chmod +x scrape_mitre.py
+5. ./scrape_mitre.py --print
+   - Should now see newly created and queryable 'threat_intel.db' file afte the MITRE ATT&CK groups directory HTML table has been scraped.
+   - Pull 'threat_intel.db' sqlite database back to the Host for push to the GitHub repository: 
