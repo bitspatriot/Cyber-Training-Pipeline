@@ -1,0 +1,2 @@
+# enrich_ips.py uses only the Python standard library
+# (urllib, json, csv, time, argparse). No third-party dependencies.
