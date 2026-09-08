@@ -58,7 +58,7 @@ echo "(above should equal 90 — matches the python output)"
 echo "=== byte-level tail to confirm no trailing blank line ==="
 tail -c 40 suspicious_ips.txt | xxd | tail -3
 
-# Task 3.4 - The Threat Intel Scraper
+# Task 3.4: The Threat Intel Scraper
 1. mkdir -p ~/05_Data_Operator/Task_3.4_mitre_scraper
 2. cd ~/05_Data_Operator/Task_3.4_mitre_scraper
 3. Create virtual environment to install 'requests' and 'beautifulsoup4.' (This constraint exists specifically for this reason. If you try to intall these packages outside the venv, they will fail. Should see "(.venv)" at the front of your prompt, indicating that pip and python both point at the isolated vurtual environment.)
@@ -73,7 +73,7 @@ tail -c 40 suspicious_ips.txt | xxd | tail -3
      - Change to target directory on the host.
      - Pull'threat_intel.db' sqlite database back to the Host for push to the GitHub repository: 'scp infra:~/05_Data_Operator/Task_3.7_mitre_scraper/threat_intel/db .'
 
-# Task 3.5 - Threat Intelligence API Enrichment
+# Task 3.5: Threat Intelligence API Enrichment
 1. mkdir -p ~/05_Data_Operator/Task_3.5_enrich_ips
 2. cd ~/05_Data_Operator/Task_3.5_enrich_ips
 3. Copy suspicious.txt file from Task 3.3 to the Task_3.5_enrich_ips directory. The python script 'enrich_ips.py' will run against that list.
@@ -82,7 +82,7 @@ tail -c 40 suspicious_ips.txt | xxd | tail -3
 6. Script reads suspicious.txt by default. With 90 IPs from Task 3.3 and a configured 1-seconds delay in the script, the script should take ~90 seconds to complete.
    - Output (stdout) is to your terminal, and won't create an output file. There's no requirement for an output file in Task 3.5
 
-# Task 3.6 - The Pipeline Orchestrator
+# Task 3.6: The Pipeline Orchestrator
 1. mkdir -p ~/05_Data_Operator/Task_3.6_pipeline
 2. cd ~/05_Data_Operator/Task_3.6_pipeline
 3. Create the run_intel_pipeline.sh script (added to 03_Scripts in GitHub repository)
