@@ -93,3 +93,9 @@ tail -c 40 suspicious_ips.txt | xxd | tail -3
    - Ensure that the pipeline script runs all three tasks concurrently
    - Bash script should produce another suspicious_ips.txt file to be used by the pipiline bash script
 
+# CLEANUP: Run gitleaks against all fo the completed task directories on Infra_Node
+1. Clone your repository again to /tmp.
+   - git clone https://github.com/<your-username>/Cyber-Training-Pipeline.git squadron-lab-scan (archive or delete the prvious 'squadron-lab-scan' clone)
+2. Go to the 'squadron-lab-scan' directory
+3. gitleaks detect --source . --report-format json --report-path /tmp/gitleaks-report.json --verbose; echo "gitleaks exit code: $?"
+   - This new scan should produce findings from the 'etc_baseline.csv' from Task 3.2. Make sure there's no other findings other than the 64 findings from that task.
