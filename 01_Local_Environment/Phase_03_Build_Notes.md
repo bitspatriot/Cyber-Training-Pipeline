@@ -81,4 +81,15 @@ tail -c 40 suspicious_ips.txt | xxd | tail -3
 5. sudo chmod +x enrich_ips.py
 6. Script reads suspicious.txt by default. With 90 IPs from Task 3.3 and a configured 1-seconds delay in the script, the script should take ~90 seconds to complete.
    - Output (stdout) is to your terminal, and won't create an output file. There's no requirement for an output file in Task 3.5
-  
+
+# Task 3.6 - The Pipeline Orchestrator
+1. mkdir -p ~/05_Data_Operator/Task_3.6_pipeline
+2. cd ~/05_Data_Operator/Task_3.6_pipeline
+3. Create the run_intel_pipeline.sh script (added to 03_Scripts in GitHub repository)
+4. sudo chmod +x run_intel_pipeline.sh
+5. PARSER=~/05_Data_Operator/<your-3.3-dir>/parse_web_logs.py
+6. ENRICHER=~/05_Data_Operator/<your-3.5-dir>/enrich_ips.py
+7. ./run_intel_pipeline.sh
+   - Ensure that the pipeline script runs all three tasks concurrently
+   - Bash script should produce another suspicious_ips.txt file to be used by the pipiline bash script
+
