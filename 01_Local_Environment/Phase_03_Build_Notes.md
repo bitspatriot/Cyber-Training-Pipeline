@@ -22,7 +22,8 @@
 1. mkdir -p ~/05_Data_Operator/Task_3.4_web_log_parser
 2. cd ~/05_Data_Operator/Task_3.4_web_log_parser
 3. Grab a sample of the real dataset needed to design the regex against actual lines: curl -s "https://raw.githubusercontent.com/elastic/examples/master/Common%20Data%20Formats/apache_logs/apache_logs" -o sample_apache_logs 2>/dev/null | head
-4. Run the parse_web_logs.py python script agains the real dataset to create the suspicious_ips.txt file:
+4. Create the parse_web_logs.py script (added to 03_Scripts in GitHub repository)
+5. Run the parse_web_logs.py python script agains the real dataset to create the suspicious_ips.txt file:
    - chmod +x parse_web_logs.py
    - python3 parse_web_logs.py -o suspicious_ips.txt
    - echo "exit: $?"
@@ -30,7 +31,7 @@
    - wc -l suspicious_ips.txt
    - head -10 suspicious_ips.txt
    - Should see 213 total 404 entries, with 90 unique client IPs from the regex parse in the pythong script
-5. Manual log analysis checks:
+6. Manual log analysis checks:
 
 *** grep through the suspicious_ips.txt file ***
 echo "=== Validation: every line must be a valid IPs and nothing else ==="
@@ -64,7 +65,20 @@ tail -c 40 suspicious_ips.txt | xxd | tail -3
    - python3 -m venv .venv
    - source .venv/bin/activate
    - pip install -r requirements.txt
-4. sudo chmod +x scrape_mitre.py
-5. ./scrape_mitre.py --print
+4. Create the scrape_mitre.py script (added to 03_Scripts in GitHub repository)
+5. sudo chmod +x scrape_mitre.py
+6. ./scrape_mitre.py --print
    - Should now see newly created and queryable 'threat_intel.db' file afte the MITRE ATT&CK groups directory HTML table has been scraped.
-   - Pull 'threat_intel.db' sqlite database back to the Host for push to the GitHub repository: 
+   - Pull 
+     - Change to target directory on the host.
+     - Pull'threat_intel.db' sqlite database back to the Host for push to the GitHub repository: 'scp infra:~/05_Data_Operator/Task_3.7_mitre_scraper/threat_intel/db .'
+
+# Task 3.5 - Threat Intelligence API Enrichment
+1. mkdir -p ~/05_Data_Operator/Task_3.5_enrich_ips
+2. cd ~/05_Data_Operator/Task_3.5_enrich_ips
+3. Copy suspicious.txt file from Task 3.3 to the Task_3.5_enrich_ips directory. The python script 'enrich_ips.py' will run against that list.
+4. Create the enrich_ips.py script (added to 03_Scripts in GitHub repository)
+5. sudo chmod +x enrich_ips.py
+6. Script reads suspicious.txt by default. With 90 IPs from Task 3.3 and a configured 1-seconds delay in the script, the script should take ~90 seconds to complete.
+   - Output (stdout) is to your terminal, and won't create an output file. There's no requirement for an output file in Task 3.5
+  
