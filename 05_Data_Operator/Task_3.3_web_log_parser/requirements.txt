@@ -1,0 +1,2 @@
+# parse_web_logs.py uses only the Python standard library (re, urllib, argparse).
+# No third-party dependencies are required.
