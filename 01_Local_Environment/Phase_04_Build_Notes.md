@@ -77,3 +77,104 @@ NOTE: If RDP'ing remotely through Tailscale, don't change your Hotst IP to the p
 *** Access pfSense GUI from Data_Node ***
 1. Open web browser (Firefox already installed)
 2. Navigate to https://192.168.1.1
+3. Login into the pfSense:
+   - Default Username: admin
+   - Default Password: pfsense
+4. Navigate to Interfaces -> Assignments -> VLANS tab -> Add
+   - For all VLANS, the parent interface is the LAN trunk (hn1)
+        VLAN Tag	Parent	Description
+        10	         hn1	Users
+        20	         hn1	Servers
+        40	         hn1	DMZ
+5. Navigate to Interfaces -> Assigments
+6. Change "LAN" dropdown to "VLAN 20 on hn1"
+7. Add "hn1.10" -> it becomes OPT1 (rename to VLAN10/Users)
+8. Add "hn1.40" -> it becomes OPT2 (rename to VLAN30/DMZ)
+   - If you save the config, you'll lose access to the pfSense GUI
+   - Open the pfSense console (no GUI needed to regain access)
+     - Choose option 2 — Set interface(s) IP address.
+     - Select LAN.
+     - It'll ask to configure IPv4 via DHCP → answer n (no).
+     - Enter the LAN IPv4 address: 10.10.20.1
+     - Subnet bit count: 24
+     - Gateway for LAN: press Enter (none — LAN is not upstream).
+     - IPv6 → n or skip.
+     - "Enable DHCP server on LAN?" → n (VLAN20 gets no DHCP).
+     - It'll ask about reverting to HTTP for the webConfigurator — you can say n (keep HTTPS) or y; either works for access.
+9. Re-address the Data_Node (eth0) interface to match the new VLAN20 subnet:
+    - sudo ip addr flush dev eth0
+    - sudo ip addr add 10.10.20.20/24 dev eth0
+    - sudo ip route add default via 10.10.20.1
+    - IMPORTANT NOTE/PITFALL: gotcha: re-running Set-VMNetworkAdapterVlan with -NativeVlanId while a trunk already exists can append rather than replace, producing a duplicate/corrupted VLAN in the allowed list that silently breaks that VLAN's delivery — reset with -Untagged first, then re-apply the full trunk in one command.
+10. Log back into the pfSense at https://10.10.20.1
+11. Select Interfaces -> OPT1
+12. Check box "Enable interface"
+13. Change 'Description': VLAN10Users
+14. Change 'IPv4 Configuration Type': Static IPv4
+15. Change 'IPv4 Address': 10.10.10.1/24
+16. Click "Save"
+17. Select Interfaces -> OPT2
+18. Check box "Enable interface"
+19. Change 'Description': VLAN10Users
+20. Change 'IPv4 Configuration Type': Static IPv4
+21. Change 'IPv4 Address': 10.10.40.1/24
+22. Click "Save"
+
+*** DHCP on VLAN10 (Users) only ***
+1. Select "Services"
+2. Select DHCP Server
+3. Select "VLAN10Users" tab
+4. Check "Enable DHCP server on VLAN10Users interface"
+5. Set the DNS server to 10.10.20.10 (Future looking: the Windows DC doesn't exist yet, but it will)
+6. Set the Gateway to 10.10.10.1
+7. Save the configuration
+8. Confirm that the LAN (VLAN20) and DMZ (VLAN30) have no DHCP configured
+
+*** Configure firewall rule for VLAN10 (Users) ***
+1. Navigate to Firewall -> Aliases
+2. Click 'Add'
+3. Alias Name: mgmt_ports
+4. Description: Management Ports
+5. Type: Port(s)
+6. Add port 22 / Description: SSH
+7. Add port 3389 / Description: RDP
+8. Save the Alias
+9. Navigate to Firewall -> Rules
+10. Select "VLAN10Users" tab
+11. Click 'Add' to build the rule
+    - Action: Block (or Reject)
+    - Protocol: TCP
+    - Source: OPT1 net (VLAN10 subnet)
+    - Destination: LAN net (VLAN20 subnet)
+    - Desitnation Port Range (From): Other
+    - Custom: Begin typing 'mgmt' to see your newly created alias
+    - To: Leave "other"
+    - Save the rule
+
+*** Configure firewall rule for VLAN10 (Users) -> VLAN20 (LAN) for other services ***
+Navigate to Firewall -> Rules
+1. Select "VLAN10Users" tab
+2. Click 'Add' to build the rule
+    - Action: Pass
+    - Protocol: TCP/UDP
+    - Source: OPT1 net (VLAN10 subnet)
+    - Destination: LAN net (VLAN20 subnet)
+    - Desitnation Port Range (From): DNS (53)
+    - To: DNS (53)
+    - Save the rule
+
+*** Configure firewall rule for VLAN10 (Users) -> Internet ***
+Navigate to Firewall -> Rules
+1. Select "VLAN10Users" tab
+2. Click 'Add' to build the rule
+    - Action: Pass
+    - Protocol: TCP/UDP
+    - Source: OPT1 net (VLAN10 subnet)
+    - Destination: Any
+    - Desitnation Port Range (From): Any
+    - To: Any
+    - Save the rule
+
+IMPORTANT NOTE: The block rule must sit above the allow-any rule, or the allow matches first and the block never fires.
+
+  
