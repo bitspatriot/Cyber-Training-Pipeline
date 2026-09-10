@@ -222,6 +222,7 @@ NOTE: Make sure you know the SQUADRON\Administrator password. Once promotion is 
 1. Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 127.0.0.1
 
 *** Configure the DNS forwarder so the DC resolves public names ***
+NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway if DCHP lease doesn't renew.
 1. Set-DnsServerForwarder -IPAddress 8.8.8.8, 1.1.1.1
 2. Test that the DC now resolved both internal and external DNS names:
    - Internal: Resolve-DnsName squadron.internal
