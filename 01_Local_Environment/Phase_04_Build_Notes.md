@@ -249,4 +249,24 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
 
 *** PAUSE: SNAPSHOT ALL VMS BEFORE PROCEDING TO INFRA_NODE MIGRATION. THE FOLLOWING STEPS CAN CAUSE LOCKOUTS OR DROPPED CONNECTIONS IF DONE INCORRECTLY OR OUT OF ORDER ***
 
+1. Checkpoint-VM -Name pfSense -SnapshotName "pre-4.2-migration"
+2. Checkpoint-VM -Name Windows_Node -SnapshotName "pre-4.2-migration"
+3. Checkpoint-VM -Name Data_Node -SnapshotName "pre-4.2-migration"
+4. Checkpoint-VM -Name Infra_Node -SnapshotName "pre-4.2-migration"
 
+*** Build new bastion path on the pfSense (BEFORE migrating the Infra_Node) ***
+1. On pfSense (GUI): Interfaces -> WAN -> Uncheck 'Block private networks and loopback addresses'
+2. Click Save and Apply
+
+*** NAT port-forward: WAN -> Infra-Node SSH ***
+1. Firewall → NAT → Port Forward → Add:
+   - Interface: WAN
+   - Protocol: TCP
+   - Destination: WAN address
+   - Destination port range: from 2222 to 2222 (a custom external port — avoids clashing with pfSense's own SSH)
+   - Redirect target IP: 10.10.20.30 (Infra-Node's future VLAN20 address)
+   - Redirect target port: 22 (from the "Other" option, type 22)
+   - Check "Add associated filter rule" (auto-creates the matching WAN pass rule)
+   - Save → Apply.
+   - Confirm associated WAN firewall rule exists:
+     - Firewall → Rules → WAN → you should see a rule allowing TCP to 10.10.20.30:22 (created by the checkbox above)
