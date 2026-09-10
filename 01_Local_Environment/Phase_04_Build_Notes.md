@@ -177,4 +177,53 @@ Navigate to Firewall -> Rules
 
 IMPORTANT NOTE: The block rule must sit above the allow-any rule, or the allow matches first and the block never fires.
 
+*** Migrate Windows_Node to VLAN20 ***
+1. Run ncpa.cpl
+2. Right click on Ethernet interface and select 'Properties'
+3. Highlight 'Internet Protocol Version 4 (TCP/IPv4)'
+4. IP Addres: 10.10.20.10
+5. Subnet Mask: 255.255.255.0
+6. Default Gateway: 10.10.20.1
+7. Preferred DNS: 10.10.20.30 (Temporary. This IP will flip to 127.0.0.1 during DC promotion)
+8. Click 'OK'
+9. Retag the adapter on Hyper-V host (Powershell): Set-VMNetworkAdapterVlan -VMName "Windows_Node" -Access -VlanId 20
+10. From Windows_Node (Verify connectivity):
+    - Confirm new network changes: ipconfig /all
+    - Test-Connection 10.10.20.1 -Count 3
+    - Test-Connection 8.8.8.8 -Count 3
+    - ping 10.20.20.1
+    - ping 8.8.8.8
+
+*** Promote Windows_Node to DC (new forest) from Powershell ***
+NOTE: Make sure you know the SQUADRON\Administrator password. Once promotion is complete, you previous user (e.g. sandbox_user) will no longer be able to log in locally because the Windows_Node is now a domain joined DC. Login as Administrator after the reboot and user account to "Domain Admins": Add-ADGroupMember -Identity "Domain Admins" -Members "<username>"
+1. Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 127.0.0.1,8.8.8.8
+2. Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
+3. Install-ADDSForest `
+  -DomainName "squadron.internal" `
+  -DomainNetbiosName "SQUADRON" `
+  -InstallDns `
+  -ForestMode "WinThreshold" `
+  -DomainMode "WinThreshold" `
+  -SafeModeAdministratorPassword (Read-Host -AsSecureString "DSRM password") `
+  -Force
+
+*** Verify the promotion suceeded ***
+1. Confirm AD/DS is running and the domain is right:
+   - Get-ADDomain | Select-Object DNSRoot, NetBIOSName, DomainMode
+   - Get-ADDomainController | Select-Object Name, Domain, IPv4Addres
+2. Confirm the DNS forward zone was created:
+   - Get-DnsServerZone | Select-Object ZoneName, ZoneType, IsReverseLookupZone
+3. Should see: 
+   - DNSRoot: squadron.internal, 
+   - DC named as itself at 10.10.20.10
+   - Forward zone squadron.internal present
+
+*** Point the DC's own DNS to point only at itself ***
+1. Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 127.0.0.1
+
+*** Configure the DNS forwarder so the DC resolves public names ***
+1. Set-DnsServerForwarder -IPAddress 8.8.8.8, 1.1.1.1
+2. Test that the DC now resolved both internal and external DNS names:
+   - Internal: Resolve-DnsName squadron.internal
+   - External: Resolve-DnsName google.com
   
