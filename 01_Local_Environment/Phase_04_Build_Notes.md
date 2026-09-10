@@ -227,4 +227,26 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
 2. Test that the DC now resolved both internal and external DNS names:
    - Internal: Resolve-DnsName squadron.internal
    - External: Resolve-DnsName google.com
-  
+
+*** Configure reverse lookup zone and register the Linux hosts ***
+1. Add-DnsServerPrimaryZone -NetworkID "10.10.20.0/24" -ReplicationScope "Forest"
+2. Add-DnsServerResourceRecordA -ZoneName "squadron.internal" -Name "data-node"  -IPv4Address "10.10.20.20" -CreatePtr
+3. Add-DnsServerResourceRecordA -ZoneName "squadron.internal" -Name "infra-node" -IPv4Address "10.10.20.30" -CreatePtr
+4. Verify:
+   - Resolve-DnsName data-node.squadron.internal
+   - Resolve-DnsName 10.10.20.20
+   - Resolve-DnsName infra-node.squadron.internal
+   - Resolve-DnsName 10.10.20.30
+
+*** Disable Hyper-V time integration ***
+1. On Host (Powershell): Disable-VMIntegrationService -VMName "Windows_Node" -Name "Time Synchronization"
+2. Confirm (on Host): Get-VMIntegrationService -VMName "Windows_Node" -Name "Time Synchronization"
+   - Should show Enabled: False
+   - If not, restart the Windows Time service (on Windows_Node (New DC)):
+     - Restart-Service w32time
+     - w32tm /query /source
+     - Should 'Local CMOS Clock' and not 'VM IC Time Synchronization Provider'
+
+*** PAUSE: SNAPSHOT ALL VMS BEFORE PROCEDING TO INFRA_NODE MIGRATION. THE FOLLOWING STEPS CAN CAUSE LOCKOUTS OR DROPPED CONNECTIONS IF DONE INCORRECTLY OR OUT OF ORDER ***
+
+
