@@ -37,7 +37,7 @@ Set-VMDvdDrive -VMName $vmName -Path $isoPath
    - Set-VMNetworkAdapter -VMName $vmName -Name "Network Adapter"        -StaticMacAddress "00155D0C7406"
    - Set-VMNetworkAdapter -VMName $vmName -Name "LAN-Trunk" -StaticMacAddress "00155D0C7407"
 
-*** Preperation steps before running the pgSense installer ***
+*** Preperation steps before running the pfSense installer ***
 1. Disable checksum offloading on both adapters:
    *** Disable all the offload features that cause issues on Hyper-V ***
    - Set-VMNetworkAdapter -VMName $vmName -IpsecOffloadMaximumSecurityAssociation 0
@@ -63,6 +63,8 @@ Set-VMDvdDrive -VMName $vmName -Path $isoPath
 8. Select "n" for VLAN setup
 9. Enter the WAN interface name: Enter 'hn0' (make sure the MAC address listed a few lines up is correct for that interface)
 10. Enter the WAN interface name: Enter 'hn1' (make sure the MAC address listed a few lines up is correct for that interface)
+
+# Task 4.2: The Handoff
 
 *** Use Data_Node as a temporary management VM for the pfSense GUI (Reason: VLAN20 doesn't exist yet until we get pfSense console access) ***
 NOTE: If RDP'ing remotely through Tailscale, don't change your Hotst IP to the pfSense LAN (192.x) IP. Risk of dropping RDP connection, which is why you should use the Data_Note (e.g. linux makes it easy to set a temporary static IP and browse with curl.)
@@ -193,6 +195,8 @@ IMPORTANT NOTE: The block rule must sit above the allow-any rule, or the allow m
     - Test-Connection 8.8.8.8 -Count 3
     - ping 10.20.20.1
     - ping 8.8.8.8
+
+# Task 4.3: Identity and Directory Services
 
 *** Promote Windows_Node to DC (new forest) from Powershell ***
 NOTE: Make sure you know the SQUADRON\Administrator password. Once promotion is complete, you previous user (e.g. sandbox_user) will no longer be able to log in locally because the Windows_Node is now a domain joined DC. Login as Administrator after the reboot and user account to "Domain Admins": Add-ADGroupMember -Identity "Domain Admins" -Members "<username>"
@@ -400,3 +404,5 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
 3. Start-ScheduledTask -TaskName "LabOps-PullMetrics"
 4. Start-Sleep 10
 5. Get-Content C:\ProgramData\LabOps\metrics.log -Tail 5
+
+# Task 4.3: The Endpoint
