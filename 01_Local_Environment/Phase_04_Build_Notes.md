@@ -270,3 +270,81 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
    - Save → Apply.
    - Confirm associated WAN firewall rule exists:
      - Firewall → Rules → WAN → you should see a rule allowing TCP to 10.10.20.30:22 (created by the checkbox above)
+
+*** Migrate Infra_Node to VLAN20 ***
+1. From Host (Powershell): Get the correct adapter name: Get-VMNetworkAdapter -VMName "Infra_Node" | Select-Object Name, SwitchName, MacAddress
+2. Both adapters are named "Network Adapter," so rename them first, so it's obvious which interface to move to VLAN20:
+   - Get-VMNetworkAdapter -VMName "Infra_Node" |
+    Where-Object SwitchName -eq "Lab_Internal" |
+    Rename-VMNetworkAdapter -NewName "LAN-VLAN20"
+   - Get-VMNetworkAdapter -VMName "Infra_Node" |
+    Where-Object SwitchName -eq "Default Switch" |
+    Rename-VMNetworkAdapter -NewName "WAN-Temp"
+3. Verify change: Get-VMNetworkAdapter -VMName "Infra_Node" | Select-Object Name, SwitchName, MacAddress
+4. Should now see two adapters named "LAN-VLAN20" and "WAN-Temp"
+5. Tag the 'Lab_Internal' adapter: Set-VMNetworkAdapterVlan -VMName "Infra_Node" -VMNetworkAdapterName "LAN-VLAN20" -Access -VlanId 20
+6. Verify it took: Get-VMNetworkAdapterVlan -VMName "Infra_Node"
+7. ping -c3 10.10.20.1
+8. ping -c3 10.10.20.10
+9. Confirm the Infra_Node is litening and reachable on 10.10.30.30:22: sudo ss -tlnp | grep :22
+
+*** Test the new bastion bath from the Host ***
+1. ssh -p 2222 <infra-user>@172.29.208.50
+   - Should get the dropped into the Indra_Node shell
+   - The pfSense is forwarding SSH traffic to the Infra_Node through it's port-forwarding rule.
+   - This test confirms that the Infra_Node's second adapter isn't accepting NAT SSH traffic on the depricated second network adapter.
+2. Second confirmation (disable (don't delete) Infra_Nodes eth1 adapter and retest the connection through the pfSense)
+   - On Host: Disconnect-VMNetworkAdapter -VMName "Infra_Node" -Name "WAN-Temp"
+   - ssh -p 2222 <infra-user>@172.29.208.50
+
+*** Remove the second adapter and retire the Phase 1 NAT ***
+1. Remove-VMNetworkAdapter -VMName "Infra_Node" -Name "WAN-Temp"
+2. Confirm the VLAN20 adapter remains: Get-VMNetworkAdapter -VMName "Infra_Node" | Select-Object Name, SwitchName, MacAddress
+   - Should see only one remaining LAN-VLAN20 on Lab_Internal adapter
+3. SSH from the host to Infra_Node: ssh -p 2222 <infra-user>@172.29.208.50
+4. ip route (should only see default route via 10.10.20.1 (pfSense))
+
+*** Retire Phase 1 NAT/forwarding (on Infra_Node) ***
+1. Flush and siable Phase 1 nftables NAT ruleset:
+   - sudo nft flush ruleset
+   - sudo systemctl disable --now nftables
+2. Turn off IP forwaring (pfSense routes now):
+   - sudo sysctl -w net.ipv4.ip_forward=0
+   - sudo rm -f /etc/sysctl.d/99-ipforward.conf
+   - sudo sysctl --system
+3. Verify Infra_Node still works after everything removed:
+   - From Host: ssh -p 2222 <infra-user>@172.29.208.50
+   - From Infra_Node:
+     - ip route
+     - ping -c3 10.10.20.1
+     - ping -c3 8.8.8.8
+
+*** Retire dnsmasq (DHCP + DNS) and repoint resolvers ***
+1. sudo systemctl disable --now dnsmasq
+2. Confirm it's gone: sudo ss -ulpn | grep -E ':53|:67' || echo "dnsmasq no longer listening"
+3. sudo systemctl restart systemd-networkd
+4. Infra_Node needs a the new resolver configured in /etc/resolve.conf:
+   - sudo tee /etc/resolv.conf >/dev/null <<'EOF'
+     nameserver 10.10.20.10
+     search squadron.internal
+     EOF
+5. Test nslookup(s):
+   - nslookup squadron.internal
+   - nslookup google.com
+
+*** Verify the Data_Node resolves to the new DC (Windows_Node) ***
+1. On Data_Node:
+   - cat /etc/resolv.conf
+   - nmcli device show eth0 | grep IP4.DNS (will still show old Phase 1 Infra_Node resolver 10.10.30.1)
+   - Set new DNS resolver:
+     - sudo nmcli connection modify 93d37765-6240-4947-8af3-1da21468eea8 \
+    ipv4.dns "10.10.20.10" \
+    ipv4.ignore-auto-dns yes
+   - sudo nmcli connection down  93d37765-6240-4947-8af3-1da21468eea8 && \ sudo nmcli connection up 93d37765-6240-4947-8af3-1da21468eea8
+   - sudo nmcli connection up  93d37765-6240-4947-8af3-1da21468eea8 && \ sudo nmcli connection up 93d37765-6240-4947-8af3-1da21468eea8
+   - nmcli device show eth0 | grep IP4.DNS
+   - cat /etc/resolv.conf
+   - nslookup squadron.internal
+   - nslookup google.com
+
+*** NTP handoff: Fix chrony's ACL on the Infra-Node ***
