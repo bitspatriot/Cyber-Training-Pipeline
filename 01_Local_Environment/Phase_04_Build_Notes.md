@@ -348,3 +348,55 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
    - nslookup google.com
 
 *** NTP handoff: Fix chrony's ACL on the Infra-Node ***
+1. grep -E '^allow' /etc/chrony/chrony.conf
+2. sudo sed -i 's|allow 10.10.30.0/24|allow 10.10.20.0/24|' /etc/chrony/chrony.conf
+3. grep -E '^allow' /etc/chrony/chrony.conf
+4. sudo systemctl restart chrony
+5. Confirm Infra_Node is still syncing upstream:
+   - chronyc sources -v
+   - chronyc tracking
+
+*** Point the Windows_Node (DC) at the Infra_Node for time ***
+1. w32tm /config /manualpeerlist:"10.10.20.30" /syncfromflags:manual /reliable:yes /update
+2. Restart-Service w32time
+3. w32tm /resync
+4. w32tm /query /source
+
+*** Rebuild the outbound-NTP block on pfSense with the Infra_Node exemption ***
+1. pfSense Rule 1 (LAN/VLAN20):
+   - Interface: LAN
+   - Action: Pass
+   - Protocol: UDP
+   - Source: 10.10.20.30 (Infra-Node, single host)
+   - Destination: any
+   - Destination port: 123
+   - Description: "Allow Infra-Node NTP upstream (time source exemption)"
+2. pfSense Rule 2 (LAN/VLAN20):
+   - Interface: LAN
+   - Action: Block
+   - Protocol: UDP
+   - Source: LAN net
+   - Destination: any
+   - Destination port: 123
+   - Description: "Block internal outbound NTP"
+3. pfSense Rule 3 (OPT1/VLAN10):
+   - Interface: LAN
+   - Action: Block
+   - Protocol: UDP
+   - Source: LAN net
+   - Destination: any
+   - Destination port: 123
+   - Description: "Block internal outbound NTP"
+4. Test the Infra_Node expemption and the other nodes block:
+   - On Infra_Node: chronyc sources -v
+     - Should still shows ^* upstream — the PASS rule let it through
+   - On Data_Node: sudo chronyd -Q -t 5 'server pool.ntp.org iburst' 2>&1
+     - Should timeout with 'Timeout reached. chronyd exiting'
+     - DC should take time from the Infra_Node: w32tm /query /source (should show 10.10.20.30)
+
+*** Repoint the Windows_Node scheduled task ***
+1. Edit C:\ProgramData\LabOps\pull-metrics.ps1
+2. Change $target line to "data-node.squadron.internal"
+3. Start-ScheduledTask -TaskName "LabOps-PullMetrics"
+4. Start-Sleep 10
+5. Get-Content C:\ProgramData\LabOps\metrics.log -Tail 5
