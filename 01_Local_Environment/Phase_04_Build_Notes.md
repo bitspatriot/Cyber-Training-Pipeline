@@ -434,4 +434,41 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
 *** Install Windows 11 Pro ***
 1. Host Powershell: Start-VM -VMName $vmName
 2. Hit space bar within 2 seconds of VM boot to start Windows install
-3. 
+3. Select the defaults to complete the install
+4. Once complete, verify the network (Powrshell):
+   - ipconfig /all
+   - IPv4 in 10.10.10.100–200
+   - Default Gateway 10.10.10.1
+   - DNS Servers 10.10.20.10
+   - DHCP Server 10.10.10.1
+5. Verify the connection:
+   - Test-Connection 10.10.10.1 -Count 2 X
+   - Test-Connection 10.10.20.10 -Count 2 X
+   - Resolve-DnsName squadron.internal ✓
+   - Resolve-DnsName google.com ✓
+   - nslookup -type=SRV _ldap._tcp.dc._msdcs.squadron.internal ✓  
+
+*** Check the clock before joining (Powershell) ***
+1. On Windows_Node (DC): Get-Date
+2. On WIN11-ENDPOINT (DC): Get-Date
+NOTE: It's important to make sure the times match to avoid kerboros issues. Tif the timezones are different on each node, run: Set-TimeZone -Id "Eastern Standard Time" on both.
+
+*** Join WIN11-ENDPOINT to the domain ***
+1. Add-Computer -DomainName "squadron.internal" -Credential (Get-Credential) -Restart
+2. Login with Windows_Node domain administrator account:
+   - Username: SQUADRON\Administrator
+   - Password: Administrator password
+3. After reboot, verify domain membership: (Get-WmiObject Win32_ComputerSystem).Domain
+   - Should read squadron.internal
+
+*** Disjoin WIN11-ENDPOINT from Hyper-V time now that it's joined to domain ***
+1. On host: Disable-VMIntegrationService -VMName "Win11-Endpoint" -Name "Time Synchronization"
+2. One the Win11-Endpoint:
+   - w32tm /resync
+   - w32tm /query /source
+   - Should show Windows_Node (DC) hostname
+
+*** Install Remote Server Administrator Tools (RSAT) on Win11-Endpoint ***
+1. Get-WindowsCapability -Online -Name "Rsat*" | Select-Object Name, State
+2. Add-WindowsCapability -Online -Name "Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0"
+3. Add-WindowsCapability -Online -Name "Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0"
