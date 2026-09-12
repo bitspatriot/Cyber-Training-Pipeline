@@ -405,4 +405,33 @@ NOTE: Set WAN interface to static 172.x address and 172.x Default Switch gateway
 4. Start-Sleep 10
 5. Get-Content C:\ProgramData\LabOps\metrics.log -Tail 5
 
-# Task 4.3: The Endpoint
+# Task 4.4: The Endpoint
+
+*** Create new Windows 11 Enpoint VM (Gen 2) with TPM enabled ***
+1. Download Windows 11 ISO from: https://www.microsoft.com/software-download/windows11
+2. On Host (Powershell):
+   - $vmName  = "Win11-Endpoint"
+   - $vhdPath = "C:\Hyper-V\Win11-Endpoint\Win11.vhdx"
+   - $isoPath = "C:\path\to\Win11.iso"
+   - New-VM -Name $vmName -Generation 2 -MemoryStartupBytes 4GB -NewVHDPath $vhdPath -NewVHDSizeBytes 64GB
+   - Set-VMProcessor -VMName $vmName -Count 2
+   - Set-VMMemory -VMName $vmName -DynamicMemoryEnabled $false
+   - Add-VMDvdDrive -VMName $vmName -Path $isoPath
+   - $dvd = Get-VMDvdDrive -VMName $vmName
+   - Set-VMFirmware -VMName $vmName -FirstBootDevice $dvd
+   - Set-VMKeyProtector -VMName $vmName -NewLocalKeyProtector
+   - Enable-VMTPM -VMName $vmName
+   - Set-VMFirmware -VMName $vmName -EnableSecureBoot On -SecureBootTemplate "MicrosoftWindows"
+3. Verify TPM and Secure Boot are set on new Win11 VM:
+   - Get-VMSecurity -VMName $vmName
+   - Get-VMFirmware -VMName $vmName | Select-Object SecureBoot, SecureBootTemplate
+
+*** Attach the network adapter on the trunk tagged to VLAN10 ***
+1. Connect-VMNetworkAdapter -VMName $vmName -SwitchName "Lab_Internal"
+2. Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId 10
+3. Get-VMNetworkAdapterVlan -VMName $vmName
+
+*** Install Windows 11 Pro ***
+1. Host Powershell: Start-VM -VMName $vmName
+2. Hit space bar within 2 seconds of VM boot to start Windows install
+3. 
