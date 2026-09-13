@@ -472,3 +472,94 @@ NOTE: It's important to make sure the times match to avoid kerboros issues. Tif 
 1. Get-WindowsCapability -Online -Name "Rsat*" | Select-Object Name, State
 2. Add-WindowsCapability -Online -Name "Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0"
 3. Add-WindowsCapability -Online -Name "Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0"
+4. Verify the installation: Get-WindowsCapability -Online -Name "Rsat*" | Where-Object State -eq "Installed"
+5. Take note of Windows_Name (DC) hostname: WIN-SLBA0U0E53P
+6. Confirm all the domain tools that are needed to continue exist: Get-Command dsa.msc, gpmc.msc -ErrorAction SilentlyContinue
+
+*** Create the AD objects and share ***
+1. New-ADOrganizationalUnit -Name "Workstations" -Path "DC=squadron,DC=internal" -ProtectedFromAccidentalDeletion $true
+2. Get-ADOrganizationalUnit -Filter 'Name -eq "Workstations"' | Select-Object Name, DistinguishedName
+3. Get-ADComputer -Filter 'Name -like "*"' | Select-Object Name, DistinguishedName
+4. Get-ADComputer -Identity "<Win11-computer-name>" |
+    Move-ADObject -TargetPath "OU=Workstations,DC=squadron,DC=internal"
+5. Get-ADComputer -Identity "<Win11-computer-name>" | Select-Object Name, DistinguishedName
+
+*** Create the Operators security group and add member ***
+1. New-ADGroup -Name "Operators" -GroupScope Global -GroupCategory Security `
+    -Path "DC=squadron,DC=internal" `
+    -Description "Operators — drive map + fine-grained password policy scope"
+2. Verify: Get-ADGroup -Identity "Operators" | Select-Object Name, GroupScope, DistinguishedName
+3. Add-ADGroupMember -Identity "Operators" -Members "sandbox_user"
+
+*** Create the file share on the DC ***
+1. New-Item -Path "C:\Shares\OperatorsData" -ItemType Directory -Force
+2. New-SmbShare -Name "OperatorsData" -Path "C:\Shares\OperatorsData" -FullAccess "SQUADRON\Domain Admins" -ChangeAccess "SQUADRON\Operators" 
+   - NOTE: This shares C:\Shares\OperatorsData as \\<DC-hostname>\OperatorsData, giving the Operators group Change (read/write) access at the share level.
+     - Windows_Node (DC) Hostname: WIN-SLBA0U0E53P
+3. Set NTFS persmissions to match (share + NTFS both gate access)
+   - $acl = Get-Acl "C:\Shares\OperatorsData"
+   - $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    "SQUADRON\Operators","Modify","ContainerInherit,ObjectInherit","None","Allow")
+   - $acl.SetAccessRule($rule)
+   - Set-Acl "C:\Shares\OperatorsData" $acl
+4. Verify:
+   - On Windows_Node:
+     - Get-SmbShare -Name "OperatorsData"
+     - Get-SmbShareAccess -Name "OperatorsData"
+   - On Win11-Endpoint:
+     - Test-Path "\\WIN-SLBA0U0E53P\OperatorsData" (Should return "True")
+
+*** NOTE: Best practice is to rename the DC to a more readable hostname (e.g. DC01), instead of the default auto-generated one created by Windows. Because the DC has already been promoted, there's more involved than simply 'Rename-Computer', so proceedning without the rename. For future builds that aren't a lab environment, recommend renaming the DC as soon as the Windows Server install is completed
+
+*** Create and link the drive-map GPO ***
+NOTE: Ensure your logged in as SQUADRON\<username> and not as local user. Freating the GPO will fail otherwise
+
+1. New-GPO -Name "GPP - Map OperatorsData Drive" -Comment "Maps M: to \\WIN-SLBA0U0E53P\OperatorsData for Operators; loopback merge"
+2. New-GPLink -Name "GPP - Map OperatorsData Drive" -Target "OU=Workstations,DC=squadron,DC=internal"
+3. On Win11_Endpoint:
+   -    Group Policy Management
+     └ Forest: squadron.internal
+        └ Domains
+           └ squadron.internal
+              └ Workstations                          ← your OU
+                 └ GPP - Map OperatorsData Drive      ← your GPO (linked here)
+4. Right click "GPP - Map OperatorsData Drive" -> Edit
+   - This opens the Group Policy Management Editor in a new window
+5. Navigate to lopback setting:
+   - Computer Configuration
+  └ Policies
+     └ Administrative Templates
+        └ System
+           └ Group Policy
+6. Double-click "Configure user Group Policy loopback processing mode"
+   - Select the "Enabled" radio button
+   - Options: Select "Merge"
+   - Click "OK"
+7. From the same "Group Policy Management Editor":
+   - User Configuration
+  └ Preferences
+     └ Windows Settings
+        └ Drive Maps
+8. Right-click "Drive Maps":
+   - On the General tab:
+     - Action: Update
+     - Location: \\WIN-SLBA0U0E53P\OperatorsData
+     - Reconnect: ✅ checked (re-maps at each logon)
+     - Label as: optional, e.g. Operators Data
+     - Drive Letter: select Use → choose M:
+     - Leave Connect as / credentials blank
+   - On the Common tab:
+     - Check "Item-level targeting."
+     - Click the "Targeting..."
+       - In the Targeting Editor:
+       - Click New Item → Security Group
+       - In the Group field, click the "..." browse button and select SQUADRON\Operators (or type it)
+       - Make sure the condition reads that the user is a member of this group
+       - Leave "User in group" (not "Computer in group")
+       - Click OK to close the Targeting Editor
+       - Click OK to close the mapped drive dialog
+
+*** Create Domain-wide login audit GPO ***
+
+1. New-GPO -Name "Audit - Logon Events" -Comment "Success+Failure logon auditing, domain-wide"
+2. New-GPLink -Name "Audit - Logon Events" -Target "DC=squadron,DC=internal"
