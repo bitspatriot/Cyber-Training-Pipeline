@@ -1,6 +1,6 @@
 # Squadron Lab — Network Diagram & Reference
 
-**Last updated:** 2026-09-10 (Phase 4: segmentation + identity)
+**Last updated:** 2026-09-12 (Phase 4 complete: segmentation + identity + GPO/security)
 **Maintainer:** Justin
 **Status:** Correct as of the date above. Update this file in the same commit as any change to addressing, VLANs, roles, the firewall ruleset, or the internet path.
 
@@ -46,15 +46,20 @@ edge. pfSense's WAN sits on the Hyper-V Default Switch (internet path).
                     |                 .100-.200
      +--------------+-----------+          |
      |              |           |          |
- +--------+   +----------+  +--------+  +-----------------+
- | DC     |   | Data-    |  | Infra- |  | Win11 endpoint  |
- | Win2022|   | Node     |  | Node   |  | (Task 4.4)      |
- |.20.10  |   | .20.20   |  | .20.30 |  | DHCP .10.100+   |
- | AD+DNS |   | Rocky    |  | Debian |  | domain-joined   |
- +--------+   +----------+  +--------+  +-----------------+
+ +--------+   +----------+  +--------+  +---------------------+
+ | DC     |   | Data-    |  | Infra- |  | Win11 endpoint      |
+ | Win2022|   | Node     |  | Node   |  | WIN11-ENDPOINT      |
+ |.20.10  |   | .20.20   |  | .20.30 |  | DHCP .10.100+       |
+ | AD+DNS |   | Rocky    |  | Debian |  | domain-joined       |
+ | WIN-   |   |          |  |        |  | ADMIN WORKSTATION   |
+ | SLBA.. |   |          |  |        |  | (RSAT: dsa+gpmc)    |
+ +--------+   +----------+  +--------+  +---------------------+
+   DC hostname: WIN-SLBA0U0E53P (auto-generated; baked into share UNC)
 
   Host workstation (Win11, physical) sits on the Default Switch (WAN side),
   reaches the Infra-Node bastion via pfSense NAT:  Host -> pfSense WAN:2222 -> Infra 10.10.20.30:22
+
+  Domain administration is done FROM the Win11 endpoint (RSAT), not at the DC console.
 ```
 
 ---
@@ -67,10 +72,10 @@ edge. pfSense's WAN sits on the Hyper-V Default Switch (internet path).
 | pfSense LAN (VLAN20)    | inter-VLAN gateway           | VLAN20         | 10.10.20.1/24      | static           |
 | pfSense OPT1 (VLAN10)   | users gateway                | VLAN10         | 10.10.10.1/24      | static           |
 | pfSense OPT2 (VLAN30)   | DMZ gateway                  | VLAN30         | 10.10.40.1/24      | static           |
-| DC (Windows_Node)       | Win Server 2022, AD DS + DNS | VLAN20         | 10.10.20.10/24     | static           |
+| DC (`WIN-SLBA0U0E53P`)  | Win Server 2022, AD DS + DNS | VLAN20         | 10.10.20.10/24     | static           |
 | Data-Node               | Rocky Linux, server          | VLAN20         | 10.10.20.20/24     | static           |
 | Infra-Node              | Debian, time source + bastion| VLAN20         | 10.10.20.30/24     | static           |
-| Win11 endpoint (4.4)    | domain-joined workstation    | VLAN10         | 10.10.10.100-200   | pfSense DHCP     |
+| Win11 endpoint (`WIN11-ENDPOINT`) | domain-joined admin workstation (RSAT) | VLAN10 | 10.10.10.100-200 | pfSense DHCP |
 | Host workstation        | physical admin box           | Default Switch | 172.29.x (DHCP)    | Default Switch   |
 
 *pfSense WAN is static as a workaround: it would not pull DHCP from the Default
@@ -197,6 +202,49 @@ domain members  ->  DC (10.10.20.10)  ->  Infra-Node (10.10.20.30)  ->  public N
 
 ---
 
+## Active Directory — objects, GPOs, and the share
+
+**Domain:** `squadron.internal` (single DC, `WIN-SLBA0U0E53P` at `10.10.20.10`).
+
+**Directory objects:**
+| Object | Type | Purpose |
+|---|---|---|
+| `OU=Workstations` | Organizational Unit | holds the Win11 endpoint computer object; GPO link target |
+| `Operators` | Global security group | scope for the drive map and the password policy |
+| `WIN11-ENDPOINT` | computer object | moved from `CN=Computers` into `OU=Workstations` |
+
+**File share:** `\\WIN-SLBA0U0E53P\OperatorsData` → `C:\Shares\OperatorsData` on the DC.
+Share access: Domain Admins (Full), Operators (Change). NTFS: Operators (Modify).
+Cross-VLAN SMB (VLAN10 endpoint → VLAN20 DC:445) is permitted by the OPT1 "pass any"
+rule (only 22/3389 are blocked).
+
+**Group Policy Objects:**
+| GPO | Linked to | Configuration |
+|---|---|---|
+| `GPP - Map OperatorsData Drive` | `OU=Workstations` | User-side GPP drive map M: → `\\WIN-SLBA0U0E53P\OperatorsData`, item-level targeting = Operators; **Computer-side loopback processing = Enabled/Merge** (required so the user-side map applies on a computer OU) |
+| `Audit - Logon Events` | domain root | Advanced Audit Policy → Logon/Logoff → Audit Logon = Success + Failure (domain-wide); companion Account Logon → Credential Validation S+F |
+
+**Fine-Grained Password Policy (PSO — not a GPO):**
+| PSO | Scope | Settings |
+|---|---|---|
+| `PSO-Operators` | `Operators` group | MinPasswordLength 14, ComplexityEnabled, Precedence 10 |
+
+Password policy is a PSO (not an OU GPO — those are silently ignored for account
+password policy) so it can scope to Operators rather than the whole domain. The
+Default Domain Policy is left untouched.
+
+**Drive-map trap recorded:** a drive map is *User* Configuration, but the OU holds a
+*computer*; without Computer-side loopback processing the GPO applies, reports
+success, and maps nothing — and the Operators item-level targeting never runs.
+Loopback (Merge) is what makes the user half process on the machine.
+
+**Time trap recorded:** the endpoint (like the DC) takes time from the Hyper-V host
+via the VMIC provider unless disabled — `Disable-VMIntegrationService ... -Name
+"Time Synchronization"` and confirm `w32tm /query /source` shows the domain, not the
+VM IC provider. Domain-join Kerberos also requires endpoint/DC clock agreement (±5 min).
+
+---
+
 ## Known issues / deferred
 
 | Item | Status |
@@ -230,4 +278,5 @@ ip -br addr ; ip route ; cat /etc/resolv.conf ; chronyc sources -v
 |------|--------|-----|
 | 2026-09-01 | Phase 1: Infra-Node as core (DHCP/DNS/NAT/NTP), key-only SSH, storage/users on Data-Node, metrics pipeline. | Justin |
 | 2026-09-03 | Phase 2: reserved IP, Caddy :8080, intentional DNS spoof, bastion/ProxyJump, tunnels, three-key SSH trust. | Justin |
-| 2026-09-10 | **Phase 4: full re-architecture.** pfSense edge + 3 VLANs on one trunk (10/20/40). Windows_Node promoted to DC (AD DS + DNS, fwd+reverse zones). Service handoff: gateway/NAT/DHCP/routing → pfSense; DNS → DC; time chain members→DC→Infra→upstream. dnsmasq retired; Infra-Node 2nd adapter + Phase 1 NAT retired; old 10.10.30.0/24 range retired; Phase 2 spoof died. Bastion moved to Infra `10.10.20.30` via pfSense WAN:2222. Segmentation rules (VLAN10 ✗→ VLAN20 mgmt). WAN static workaround for Default-Switch DHCP failure. | Justin |
+| 2026-09-10 | **Phase 4.1–4.2: re-architecture + handoff.** pfSense edge + 3 VLANs on one trunk (10/20/40). Windows_Node promoted to DC (AD DS + DNS, fwd+reverse zones). Service handoff: gateway/NAT/DHCP/routing → pfSense; DNS → DC; time chain members→DC→Infra→upstream. dnsmasq retired; Infra-Node 2nd adapter + Phase 1 NAT retired; old 10.10.30.0/24 range retired; Phase 2 spoof died. Bastion moved to Infra `10.10.20.30` via pfSense WAN:2222. Segmentation rules (VLAN10 ✗→ VLAN20 mgmt). WAN static workaround for Default-Switch DHCP failure. | Justin |
+| 2026-09-12 | **Phase 4.3–4.5: endpoint + identity + security.** Win11 Pro endpoint (Gen2 + vTPM) on VLAN10, domain-joined, made the admin workstation (RSAT dsa+gpmc). AD objects: `OU=Workstations` (computer moved in), `Operators` group, `\\WIN-SLBA0U0E53P\OperatorsData` share. GPOs: drive-map (loopback+ILT to Operators), domain-wide logon auditing (S+F). PSO-Operators (14/complex) scoped to Operators. Endpoint time integration disabled. | Justin |
