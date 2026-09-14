@@ -563,3 +563,36 @@ NOTE: Ensure your logged in as SQUADRON\<username> and not as local user. Freati
 
 1. New-GPO -Name "Audit - Logon Events" -Comment "Success+Failure logon auditing, domain-wide"
 2. New-GPLink -Name "Audit - Logon Events" -Target "DC=squadron,DC=internal"
+3. Run 'gpmc.msc' on Win11-Endpoint
+4. Expand to squadron.internal → find Audit - Logon Events linked at the domain root.
+Right-click → Edit.
+   - Navigate: Computer Configuration → Policies → Windows Settings → Security Settings → Advanced Audit Policy Configuration → Audit Policies → Logon/Logoff.
+   - In the right pane, double-click "Audit Logon"
+   - Check "Configure the following audit events"
+   - Tick Success and Failure
+   - OK
+5. Configure companion policy for a DC, where credential validation actually happens: under Audit Policies → Account Logon, double-click "Audit Credential Validation" → Configure → Success + Failure.
+
+*** Configure Fine-grained Password Policy (Powershell)
+1. On Win11-Endpoint: New-ADFineGrainedPasswordPolicy -Name "PSO-Operators" `
+    -Precedence 10 `
+    -MinPasswordLength 14 `
+    -ComplexityEnabled $true `
+    -Description "14-char complex password policy for Operators group"
+2. Add-ADFineGrainedPasswordPolicySubject -Identity "PSO-Operators" -Subjects "Operators"
+3. Verify the PSO exists:
+   - Get-ADFineGrainedPasswordPolicy -Identity "PSO-Operators" |
+    Select-Object Name, MinPasswordLength, ComplexityEnabled, Precedence
+   - Get-ADFineGrainedPasswordPolicySubject -Identity "PSO-Operators"
+   - Get-ADUserResultantPasswordPolicy -Identity "sandbox_user" 
+
+*** End-to-end verification of GPOs ***
+1. gpupdate /force
+2. Get-PSDrive M
+3. gpresult /r
+4. Get-ADUserResultantPasswordPolicy -Identity "sandbox_user"
+5. Get-ADFineGrainedPasswordPolicy -Identity "PSO-Operators"
+   - Should see:
+     - MinPasswordLength : 14
+     - ComplexityEnabled : True
+6. auditpol /get /category:"Logon/Logoff"
