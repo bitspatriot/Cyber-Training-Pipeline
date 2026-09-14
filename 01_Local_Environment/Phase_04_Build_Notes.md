@@ -596,3 +596,18 @@ Right-click → Edit.
      - MinPasswordLength : 14
      - ComplexityEnabled : True
 6. auditpol /get /category:"Logon/Logoff"
+
+*** Download the pfSense configuration and redact hashes ***
+1. From Data_Node: Log into the pfSense
+2. Diagnostics -> Backup & Restore -> Backup & Restore tab
+3. Backup area: leave Backup area = "All"
+4. Do NOT check "Encrypt this configuration file" (you need it readable to sanitize and commit)
+5. Click Download configuration as XML
+6. From terminal:
+   - cp config-*.xml Phase_4_pfsense_config_redacted.xml
+   - sed -i 's|<bcrypt-hash>.*</bcrypt-hash>|<bcrypt-hash>REDACTED</bcrypt-hash>|g' Task_4.1_pfsense_config_redacted.xml
+   - sed -i 's|<prv>.*</prv>|<prv>REDACTED</prv>|g' Task_4.1_pfsense_config_redacted.xml
+   - sed -i 's|<rocommunity>.*</rocommunity>|<rocommunity>REDACTED</rocommunity>|g' Task_4.1_pfsense_config_redacted.xml
+   - sed -i 's|<crt>.*</crt>|<crt>REDACTED</crt>|g' Task_4.1_pfsense_config_redacted.xml
+   - Check that all hashes are redacted: grep -E 'bcrypt-hash|<prv>|rocommunity|<crt>' Task_4.1_pfsense_config_redacted.xml
+7. Copy (scp) pfSense configuration to the Host
