@@ -19,3 +19,33 @@
 2. Verify the install: 
    - Close + Reopen Powershell
    - terraform version
+
+*** Install Oracle Cloud CLI (OCI CLI) on Host ***
+1. winget install Oracle.OCI-CLI
+
+*** Gather the Oracle API credentials Terraform needs ***
+1. Find Tenancy OCID, User OCID (from the console: Profile → your user, and Tenancy details)
+2. Region: us-ashburn-1
+
+*** OCI Console: Generate API Key ***
+1. Log into the OCI console
+2. Click your profile icon (top-right) → My profile ("User settings")
+3. In the left panel under Resources, click API keys → Add API key
+4. Select "Generate API key pair"
+5. Click Download private key — save it somewhere safe on the Host, e.g. C:\Users\<you>\.oci\oci_api_key.pem. This is the only time you can download it. (Optionally download the public key too, but Oracle keeps it so you won't have to upload it manually.)
+6. Click Add
+7. Oracle then displays a Configuration file preview (Copy the block and save it for Terraform)
+
+*** Generate the Terraform files needed for configuration and validate the configuration ***
+1. Terafform Files Needed:
+   - maint.tf
+   - terraform.tfvars
+   - .gitignore
+   - NOTE 1: Terraform configuration files uploaded to repository directory: 06_IaC_Cloud_PKI
+   - NOTE 2: Terraform config must resolve Windows path's with "/" instead of "\". Errors will occure during initialization and validation steps if in cannot resolve Host paths.
+2. Input the values from Oracle Cloud and Host that Terraform needs for API
+3. From repository directory, validate Terraform configuration (from Host Powershell Terraform folder):
+   - terraform init (should see message: "Terraform has been successfully initialized!")
+   - terraform validate (should see "Success! The configuration is valid.")
+   - terraform plan (should output entire Terraform configuration/plan)
+4. 
