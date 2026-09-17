@@ -48,4 +48,21 @@
    - terraform init (should see message: "Terraform has been successfully initialized!")
    - terraform validate (should see "Success! The configuration is valid.")
    - terraform plan (should output entire Terraform configuration/plan)
-4. 
+
+*** Set ssh_ingress_cidr to public IP so SSH isn't open to the entire internet ***
+1. Find public IP for workstation: https://www.whatismyip.com
+2. In terraform.tfvars: set ssh_ingress.cidr to public IP. Don't forget to add CIDR notation (e.g. "/32" at the end of the IP)
+
+*** Apply the Terraform config and build the A1 instance ***
+1. Powershell: terraform apply
+2. Capture the outputs:
+   - availability_domain_used = "DdMo:US-ASHBURN-AD-1"
+   - instance_public_ip = "132.145.191.118"
+   - instance_shape = "VM.Standard.A1.Flex
+3. Connect to new Oracle Cloud Ubuntu instance:
+   - ssh -i C:/Users/sandbox_user/<ssh key path> ubuntu@<public-ip>
+   - From Host: ssh -i $env:USERPROFILE\.ssh\id_ed25519 ubuntu@132.145.191.118
+     - Should authenticate to OCI instance
+4. Open terraform.tfstate in a text editor to see all the VM's details that were deployed
+
+
