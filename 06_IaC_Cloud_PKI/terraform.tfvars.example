@@ -1,0 +1,22 @@
+# ============================================================================
+# TEMPLATE. Copy to terraform.tfvars and fill in your real values.
+# terraform.tfvars is GITIGNORED — it holds OCIDs and key paths and must never
+# be committed. This .example file is safe to commit as documentation.
+# ============================================================================
+
+# --- From your OCI API key "config preview" ---------------------------------
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaEXAMPLE"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaEXAMPLE"
+fingerprint      = "12:34:56:78:90:ab:cd:ef:12:34:56:78:90:ab:cd:ef"
+private_key_path = "C:/Users/YOU/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+
+# --- Compartment (root/tenancy OCID is fine for free tier) -------------------
+compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaaEXAMPLE"
+
+# --- SSH public key to authorize on the VM (your workstation's) --------------
+ssh_public_key_path = "C:/Users/YOU/.ssh/id_ed25519.pub"
+
+# --- Optional overrides ------------------------------------------------------
+# ad_number        = 1              # switch to 2 or 3 on out-of-capacity errors
+# ssh_ingress_cidr = "203.0.113.5/32"   # your workstation public IP for tighter SSH

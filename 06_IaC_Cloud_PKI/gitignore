@@ -1,0 +1,28 @@
+# ============================================================================
+# Terraform ignores. The state file is a CREDENTIAL — it stores real infra
+# state in cleartext, including values that were secret when supplied. Never
+# commit it. terraform.tfvars holds OCIDs and key paths — never commit it.
+# ============================================================================
+
+# State files (cleartext credentials — open one and look at what's in it)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash log
+crash.log
+crash.*.log
+
+# Real variable values (OCIDs, key paths) — commit terraform.tfvars.example instead
+terraform.tfvars
+*.auto.tfvars
+
+# The API signing private key, if ever placed here (it should live in ~/.oci)
+*.pem
+
+# Provider plugins and lock cache
+.terraform/
+.terraform.lock.hcl
+
+# Plan output files
+*.tfplan
