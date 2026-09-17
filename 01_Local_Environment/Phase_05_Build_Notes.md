@@ -64,5 +64,19 @@
    - From Host: ssh -i $env:USERPROFILE\.ssh\id_ed25519 ubuntu@132.145.191.118
      - Should authenticate to OCI instance
 4. Open terraform.tfstate in a text editor to see all the VM's details that were deployed
+5. Push the Terraform configuration to the GitHub repo to ensure it git reads the .gitignore file and only pushes 4 files:
+   - .gitignore
+   - main.tf
+   - terraform.tfvars.example
+   - variables.tf
+  
+*** Create new A record in deSEC.io ***
+1. In the deSEC console, create a new record:
+   - Type: A
+   - Subdomain:leave blank
+   - Value: the VM's public IP you captured after deployment
+   - TTL: < 3600 (e.g. 900 is the lowest possible value)
+2. From Host: nslookup <domain-name>.dedyn.io
+   - Should return OC VMs public IP address
 
 
